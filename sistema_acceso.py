@@ -534,10 +534,14 @@ def mostrar_pantalla_principal(root):
 
         # Aplicar filtro de fecha
         fecha_val = filtro_fecha.get()
-        hoy = datetime.now().date()
-        
+        hoy = datetime.now()
+                
         if fecha_val == "Hoy":
-            query = query.eq("fecha", str(hoy))
+            query = query.eq("fecha", str(hoy)) 
+            print(str(query))
+            print(hoy)
+            print(str(fecha_val))
+            
         elif fecha_val == "Ayer":
             query = query.eq("fecha", str(hoy - timedelta(days=1)))
         elif fecha_val == "Esta semana anterior":
@@ -606,7 +610,7 @@ def mostrar_pantalla_principal(root):
                         f"Descripción: {s.get('descripcion')}\n"
                         f"Usuario: {usuarios_map.get(str(s.get('usuario')), 'Desconocido')}\n"
                         f"Técnico: {usuarios_map.get(str(s.get('tecnico')), 'Sin asignar')}\n"
-                        f"Departamento: {s.get('departamento_nombre', 'Desconocido')}\n"
+                        f"Departamento: {s.get('departamento', 'Desconocido')}\n"
                         f"Fecha creación: {formatear_fecha(s.get('fecha'))}\n"
                         f"Fecha culminación: {formatear_fecha(s.get('fecha_culminado'))}\n"
                         f"Reporte: {reporte_valor}"
