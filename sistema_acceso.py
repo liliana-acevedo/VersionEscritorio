@@ -534,24 +534,62 @@ def mostrar_pantalla_principal(root):
 
         # Aplicar filtro de fecha
         fecha_val = filtro_fecha.get()
-        hoy = datetime.now()
-                
+        
+        # Obtenemos la fecha de hoy, pero solo la parte DATE (sin hora)
+        hoy_date = datetime.now().date()
+        
+        # --- BLOQUE DE CÓDIGO CORREGIDO PARA FILTRAR CAMPO DE TIPO TEXTO ---
+        
         if fecha_val == "Hoy":
-            query = query.eq("fecha", str(hoy)) 
-            print(str(query))
-            print(hoy)
-            print(str(fecha_val))
+            # Inicio: YYYY-MM-DD (Compara desde la primera hora del día)
+            inicio_str = hoy_date.isoformat() 
+            # Fin: YYYY-MM-DD (Usamos el inicio del día siguiente para el filtro < )
+            fin_date = hoy_date + timedelta(days=1)
+            fin_str = fin_date.isoformat()
+            
+            # Filtra: fecha >= 'YYYY-MM-DD' AND fecha < 'YYYY-MM-DD del día siguiente'
+            query = query.gte("fecha", inicio_str).lt("fecha", fin_str)
             
         elif fecha_val == "Ayer":
-            query = query.eq("fecha", str(hoy - timedelta(days=1)))
+            ayer_date = hoy_date - timedelta(days=1)
+            
+            inicio_str = ayer_date.isoformat()
+            fin_date = hoy_date # Inicio del día siguiente (Hoy)
+            fin_str = fin_date.isoformat()
+
+            query = query.gte("fecha", inicio_str).lt("fecha", fin_str)
+
         elif fecha_val == "Esta semana anterior":
-            inicio = hoy - timedelta(days=hoy.weekday() + 7)
-            fin = inicio + timedelta(days=6)
-            query = query.gte("fecha", str(inicio)).lte("fecha", str(fin))
+            
+            # Inicio de la semana actual (Lunes)
+            inicio_esta_semana = hoy_date - timedelta(days=hoy_date.weekday())
+            
+            # Inicio de la semana anterior (Lunes)
+            inicio_semana_anterior = inicio_esta_semana - timedelta(days=7)
+            
+            # Fin de la semana anterior (Inicio del Lunes de esta semana)
+            fin_semana_anterior = inicio_esta_semana
+            
+            inicio_str = inicio_semana_anterior.isoformat()
+            fin_str = fin_semana_anterior.isoformat()
+            
+            # Filtra por el rango de cadenas de fecha [inicio de la semana pasada, inicio de esta semana)
+            query = query.gte("fecha", inicio_str).lt("fecha", fin_str)
+            
         elif fecha_val == "Personalizado" and hasattr(obtener_servicios_filtrados, "rango_personalizado"):
-            # Usa el rango guardado al cerrar la ventana de calendario
-            desde, hasta = obtener_servicios_filtrados.rango_personalizado
-            query = query.gte("fecha", desde).lte("fecha", hasta)
+            
+            # Los valores guardados son cadenas 'YYYY-MM-DD'
+            desde_str, hasta_str = obtener_servicios_filtrados.rango_personalizado
+            
+            # Para cubrir el día 'hasta' por completo, necesitamos el inicio del día siguiente.
+            # Convertimos a objeto date para sumar el día, luego a string para la consulta.
+            hasta_obj = datetime.fromisoformat(hasta_str).date()
+            fin_rango_exclusivo = hasta_obj + timedelta(days=1)
+            
+            # Filtra: fecha >= 'desde' AND fecha < 'inicio del día siguiente a hasta'
+            query = query.gte("fecha", desde_str).lt("fecha", fin_rango_exclusivo.isoformat())
+
+        # --- FIN DEL BLOQUE DE CÓDIGO CORREGIDO ---
 
         return obtener_servicios_filtrados_base(query)
 
@@ -664,6 +702,7 @@ def mostrar_pantalla_principal(root):
                     return
                 if desde_obj > hasta_obj:
                     return
+                # Guardamos la fecha en formato YYYY-MM-DD para el filtro de texto
                 obtener_servicios_filtrados.rango_personalizado = (str(desde_obj), str(hasta_obj))
                 ventana.destroy()
                 renderizar_servicios()
@@ -727,6 +766,3 @@ def setup_login_app(root):
     # Etiqueta para mostrar mensajes de error/notificación
     notificacion = ctk.CTkLabel(content_frame, text="", text_color="red", font=ctk.CTkFont(size=13, weight="bold"))
     notificacion.pack(pady=(5, 5))
-
-
-

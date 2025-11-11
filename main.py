@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import tkinter as tk
 from sistema_acceso import setup_login_app
 import platform 
 

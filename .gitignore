@@ -1,0 +1,56 @@
+# Archivo de exclusión de Git para proyectos Python
+
+# 1. Entornos virtuales
+
+# Excluye la carpeta del entorno virtual (venv/ o env/)
+
+venv/
+env/
+.venv/
+.env
+
+# 2. Archivos de Python compilados y cachés
+
+*.pyc
+__pycache__/
+*.so
+*.pyd
+
+# 3. Archivos de paquetes y distribución
+
+# Builds y directorios de instalación
+
+dist/
+build/
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+
+# 4. Archivos de depuración y registro
+
+*.log
+*.sqlite3 # Si usara bases de datos SQLite localmente
+
+# 5. Archivos de sistema operativo y editores comunes
+
+.DS_Store
+Thumbs.db
+.vscode/ # Configuración de VS Code específica del usuario
+
+# 6. Archivos de credenciales y configuración local
+
+# IMPORTANTE: Si tiene un archivo como 'cliente_supabase.py' que contiene claves API,
+
+# asegúrese de que no se suba. Si el archivo solo contiene las claves,
+
+# cámbiele el nombre a un archivo excluido (ej: .env) y úselo para cargar las credenciales.
+
+# Si 'cliente_supabase.py' es necesario, cree un archivo de credenciales aparte
+
+# y agréguelo aquí, por ejemplo:
+
+# credentials.py
+
+# .key
+
+# .secret
