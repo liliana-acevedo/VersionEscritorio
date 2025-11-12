@@ -5,6 +5,7 @@
 # Excluye la carpeta del entorno virtual (venv/ o env/)
 
 venv/
+venv
 env/
 .venv/
 .env

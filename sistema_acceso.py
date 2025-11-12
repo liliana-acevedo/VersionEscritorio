@@ -346,106 +346,15 @@ def obtener_servicios_filtrados_base(query_builder):
         
         for s in servicios:
             dep_id = s.get("departamento")
-            s["departamento_nombre"] = dep_map.get(str(dep_id), "Desconocido")
+            s["Departamento"] = dep_map.get(str(dep_id), "Desconocido")
         return servicios
     except Exception as e:
         print("Error obtener servicios:", e)
         return []
 
 
-# --- PANTALLA DE REGISTRO DE USUARIO ---
-def mostrar_pantalla_registro(root):
- 
-    global registro_entries, registro_notificacion, app_root
-    app_root = root
-    _clear_widgets(root)
-    root.title("Registro de Usuario")
 
-    departamentos_map = obtener_departamentos()  # {nombre: id}
-    roles_map = obtener_roles()  # {nombre: id}
-    departamento_names = list(departamentos_map.keys())
-    rol_names = list(roles_map.keys())
-
-    main_frame = ctk.CTkFrame(root, fg_color="#F7F9FB")
-    main_frame.pack(expand=True, fill="both")
-    main_frame.grid_rowconfigure(1, weight=1)
-    main_frame.grid_columnconfigure(0, weight=1)
-
-    header_frame = ctk.CTkFrame(main_frame, fg_color="#0C4A6E", corner_radius=0, height=70)
-    header_frame.grid(row=0, column=0, sticky="ew")
-    header_frame.grid_columnconfigure(1, weight=1) # Título
-    header_frame.grid_columnconfigure(2, weight=0) # Botón VOLVER
-
-    ctk.CTkLabel(header_frame, text="Registro de Nuevo Usuario",
-                 font=ctk.CTkFont(size=22, weight="bold"),
-                 text_color="white").grid(row=0, column=1, padx=(30, 20), pady=15, sticky="w")
-
-    # Botón VOLVER
-    ctk.CTkButton(header_frame, text="VOLVER", fg_color="#3D89D1",
-                  hover_color="#1E3D8F",
-                  font=ctk.CTkFont(size=13, weight="bold"),
-                  corner_radius=8, width=120, height=40,
-                  command=lambda: mostrar_pantalla_principal(root)).grid(row=0, column=2, padx=(10, 20), pady=12, sticky="e")
-
-    # Formulario central
-    form_frame = ctk.CTkFrame(main_frame, fg_color="#FFFFFF", corner_radius=10)
-    form_frame.grid(row=1, column=0, pady=20, padx=20, ipadx=20, ipady=20, sticky="n")
-
-    ctk.CTkLabel(form_frame, text="Complete los campos", font=ctk.CTkFont(size=16, weight="bold"), text_color="#1E3D8F").pack(pady=10)
-
-    # Entradas de datos (Cédula, Nombre, Apellido)
-    registro_entries = {}
-    cedula_ent = ctk.CTkEntry(form_frame, placeholder_text="Cédula de Identidad", width=320, height=38, font=ctk.CTkFont(size=14))
-    cedula_ent.pack(pady=8)
-    registro_entries['cedula'] = cedula_ent
-
-    nombre_ent = ctk.CTkEntry(form_frame, placeholder_text="Nombre", width=320, height=38, font=ctk.CTkFont(size=14))
-    nombre_ent.pack(pady=8)
-    registro_entries['nombre'] = nombre_ent
-
-    apellido_ent = ctk.CTkEntry(form_frame, placeholder_text="Apellido", width=320, height=38, font=ctk.CTkFont(size=14))
-    apellido_ent.pack(pady=8)
-    registro_entries['apellido'] = apellido_ent
-
-   
-    ctk.CTkLabel(form_frame, text="Departamento:", text_color="#1E1E1E").pack(pady=(10, 0))
-    departamento_vals = departamento_names if departamento_names else ["-- Sin departamentos --"]
-    depto_combo = ctk.CTkComboBox(form_frame, values=departamento_vals, width=320)
-    if departamento_names:
-        depto_combo.set(departamento_names[0])
-    else:
-        depto_combo.set("-- Sin departamentos --")
-    depto_combo.pack(pady=(4, 10))
-    registro_entries['departamento'] = depto_combo
-
- 
-    ctk.CTkLabel(form_frame, text="Rol:", text_color="#1E1E1E").pack(pady=(10, 0))
-    rol_vals = rol_names if rol_names else ["-- Sin roles --"]
-    rol_combo = ctk.CTkComboBox(form_frame, values=rol_vals, width=320)
-    if rol_names:
-        default_rol = "Usuario Estándar" if "Usuario Estándar" in rol_names else rol_names[0]
-        rol_combo.set(default_rol)
-    else:
-        rol_combo.set("-- Sin roles --")
-    rol_combo.pack(pady=(4, 10))
-    registro_entries['rol'] = rol_combo
-
-
-    registro_notificacion = ctk.CTkLabel(form_frame, text="", font=ctk.CTkFont(size=13, weight="bold"))
-    registro_notificacion.pack(pady=8)
-
-  
-    def _on_registrar():
-        deps = obtener_departamentos()
-        roles = obtener_roles()
-        threading.Thread(target=registrar_usuario, args=(root, roles, deps), daemon=True).start()
-
-    # Botón REGISTRAR
-    ctk.CTkButton(form_frame, text="REGISTRAR", fg_color="#16A34A", hover_color="#15803D",
-                  font=ctk.CTkFont(size=14, weight="bold"), width=320, height=42,
-                  command=_on_registrar).pack(pady=(10, 6))
-
-
+# PANTALLA PRINCIPAL (Lista de Servicios) 
 # PANTALLA PRINCIPAL (Lista de Servicios) 
 def mostrar_pantalla_principal(root):
     from PIL import Image
@@ -454,6 +363,13 @@ def mostrar_pantalla_principal(root):
 
     filtro_estado = tk.StringVar(value="Todos")
     filtro_fecha = tk.StringVar(value="Todos")
+    
+    # --- MODIFICADO ---
+    # Ya no necesitamos 'filtro_especial_var'
+    # Mantenemos este diccionario para guardar la selección
+    filtros_especiales = {'tecnico_id': None, 'depto_id': None}
+    # --- FIN MODIFICADO ---
+
 
     # Configuración de la Interfaz 
     main_frame = ctk.CTkFrame(root, fg_color="#F7F9FB")
@@ -531,65 +447,51 @@ def mostrar_pantalla_principal(root):
         # Aplicar filtro de estado
         if estado_val in estado_map:
             query = query.eq("estado", estado_map[estado_val])
+            
+        
+        # Aplicar filtro de técnico o departamento
+        tecnico_id_val = filtros_especiales.get('tecnico_id')
+        depto_id_val = filtros_especiales.get('id_departamento')
+
+        # Son exclusivos: O filtra por técnico, o por depto, o por estado.
+        # El reseteo se maneja en 'manejar_filtro_principal'
+        if tecnico_id_val:
+            query = query.eq("tecnico", tecnico_id_val)
+        elif depto_id_val:
+            query = query.eq("Departamento", depto_id_val)
+      
 
         # Aplicar filtro de fecha
         fecha_val = filtro_fecha.get()
         
-        # Obtenemos la fecha de hoy, pero solo la parte DATE (sin hora)
         hoy_date = datetime.now().date()
         
-        # --- BLOQUE DE CÓDIGO CORREGIDO PARA FILTRAR CAMPO DE TIPO TEXTO ---
-        
         if fecha_val == "Hoy":
-            # Inicio: YYYY-MM-DD (Compara desde la primera hora del día)
             inicio_str = hoy_date.isoformat() 
-            # Fin: YYYY-MM-DD (Usamos el inicio del día siguiente para el filtro < )
             fin_date = hoy_date + timedelta(days=1)
             fin_str = fin_date.isoformat()
-            
-            # Filtra: fecha >= 'YYYY-MM-DD' AND fecha < 'YYYY-MM-DD del día siguiente'
             query = query.gte("fecha", inicio_str).lt("fecha", fin_str)
             
         elif fecha_val == "Ayer":
             ayer_date = hoy_date - timedelta(days=1)
-            
             inicio_str = ayer_date.isoformat()
-            fin_date = hoy_date # Inicio del día siguiente (Hoy)
+            fin_date = hoy_date
             fin_str = fin_date.isoformat()
-
             query = query.gte("fecha", inicio_str).lt("fecha", fin_str)
 
         elif fecha_val == "Esta semana anterior":
-            
-            # Inicio de la semana actual (Lunes)
             inicio_esta_semana = hoy_date - timedelta(days=hoy_date.weekday())
-            
-            # Inicio de la semana anterior (Lunes)
             inicio_semana_anterior = inicio_esta_semana - timedelta(days=7)
-            
-            # Fin de la semana anterior (Inicio del Lunes de esta semana)
             fin_semana_anterior = inicio_esta_semana
-            
             inicio_str = inicio_semana_anterior.isoformat()
             fin_str = fin_semana_anterior.isoformat()
-            
-            # Filtra por el rango de cadenas de fecha [inicio de la semana pasada, inicio de esta semana)
             query = query.gte("fecha", inicio_str).lt("fecha", fin_str)
             
         elif fecha_val == "Personalizado" and hasattr(obtener_servicios_filtrados, "rango_personalizado"):
-            
-            # Los valores guardados son cadenas 'YYYY-MM-DD'
             desde_str, hasta_str = obtener_servicios_filtrados.rango_personalizado
-            
-            # Para cubrir el día 'hasta' por completo, necesitamos el inicio del día siguiente.
-            # Convertimos a objeto date para sumar el día, luego a string para la consulta.
             hasta_obj = datetime.fromisoformat(hasta_str).date()
             fin_rango_exclusivo = hasta_obj + timedelta(days=1)
-            
-            # Filtra: fecha >= 'desde' AND fecha < 'inicio del día siguiente a hasta'
             query = query.gte("fecha", desde_str).lt("fecha", fin_rango_exclusivo.isoformat())
-
-        # --- FIN DEL BLOQUE DE CÓDIGO CORREGIDO ---
 
         return obtener_servicios_filtrados_base(query)
 
@@ -600,7 +502,6 @@ def mostrar_pantalla_principal(root):
 
         cargando_lbl = ctk.CTkLabel(scrollable, text="Cargando servicios...", font=ctk.CTkFont(size=14, weight="bold"), text_color="#0C4A6E")
         cargando_lbl.pack(pady=20)
-
         
         def tarea():
             try:
@@ -618,7 +519,6 @@ def mostrar_pantalla_principal(root):
                     ctk.CTkLabel(scrollable, text="No hay servicios registrados.", font=ctk.CTkFont(size=14)).pack(pady=20)
                     return
 
-            
                 for s in servicios:
                     estado_text = traducir_estado(s.get("estado"))
                     color_estado = {
@@ -661,11 +561,161 @@ def mostrar_pantalla_principal(root):
 
         threading.Thread(target=tarea, daemon=True).start()
 
+    
+    def abrir_ventana_seleccionar_tecnico():
+        """Abre una ventana emergente para seleccionar un técnico."""
+        
+        ventana = ctk.CTkToplevel(root)
+        ventana.title("Seleccionar Técnico")
+        ventana.configure(fg_color="#F7F9FB")
+        ventana.grab_set()
+        ventana.focus_force()
+        ventana.resizable(False, False)
+        
+        contenido = ctk.CTkFrame(ventana, fg_color="#FFFFFF")
+        contenido.pack(padx=20, pady=20, fill="both", expand=True)
+
+        ctk.CTkLabel(contenido, text="Seleccione un Técnico", font=ctk.CTkFont(size=18, weight="bold"), text_color="#0C4A6E").pack(pady=(10, 15))
+
+        # Mapa para { "Nombre (Cedula)": cedula_id }
+        tecnicos_map = {}
+        
+        combo = ctk.CTkComboBox(
+            contenido, 
+            values=["Cargando..."],
+            width=300,
+            height=35
+        )
+        combo.pack(pady=10, padx=10)
+
+        def _cargar_tecnicos():
+            try:
+                # --- CAMBIO 2: Añadido .eq("rol", 1) ---
+                # Filtra solo usuarios donde el rol es 1 (Técnico)
+                resp = supabase.table("Usuario").select("cedula, nombre, apellido").eq("rol", 1).order("nombre").execute()
+                # --- FIN CAMBIO 2 ---
+                
+                tecnicos = resp.data or []
+                
+                if not tecnicos:
+                    root.after(0, lambda: combo.configure(values=["-- No hay técnicos --"]))
+                    return
+                
+                tecnicos_map.clear()
+                display_names = []
+                
+                for u in tecnicos:
+                    nombre = f"{u.get('nombre') or ''} {u.get('apellido') or ''}".strip()
+                    cedula = u.get('cedula')
+                    if not nombre: nombre = f"Técnico ({cedula})"
+                    
+                    display = f"{nombre} ({cedula})"
+                    tecnicos_map[display] = cedula
+                    display_names.append(display)
+                
+                root.after(0, lambda: combo.configure(values=display_names))
+                root.after(0, lambda: combo.set(display_names[0]))
+                
+            except Exception as e:
+                print(f"Error cargando técnicos: {e}")
+                root.after(0, lambda: combo.configure(values=["-- Error al cargar --"]))
+
+        def _aplicar():
+            display_seleccionado = combo.get()
+            id_tecnico = tecnicos_map.get(display_seleccionado)
+            
+            if id_tecnico:
+                filtros_especiales['tecnico_id'] = id_tecnico
+                filtros_especiales['depto_id'] = None # Resetea el otro filtro
+                
+                # --- CAMBIO 1: Actualiza el ComboBox principal ---
+                nombre_corto = display_seleccionado.split('(')[0].strip()
+                filtro_estado.set(f"Técnico: {nombre_corto[:20]}...")
+                # --- FIN CAMBIO 1 ---
+                
+                ventana.destroy()
+                renderizar_servicios()
+
+        ctk.CTkButton(contenido, text="Aplicar Filtro", fg_color="#0C4A6E", hover_color="#155E75", corner_radius=10, width=200, height=40, command=_aplicar).pack(pady=(15, 10))
+        
+        threading.Thread(target=_cargar_tecnicos, daemon=True).start()
+
+
+    def abrir_ventana_seleccionar_departamento():
+        """Abre una ventana emergente para seleccionar un departamento."""
+        
+        ventana = ctk.CTkToplevel(root)
+        ventana.title("Seleccionar Departamento")
+        ventana.configure(fg_color="#F7F9FB")
+        ventana.grab_set()
+        ventana.focus_force()
+        ventana.resizable(False, False)
+        
+        contenido = ctk.CTkFrame(ventana, fg_color="#FFFFFF")
+        contenido.pack(padx=20, pady=20, fill="both", expand=True)
+
+        ctk.CTkLabel(contenido, text="Seleccione un Departamento", font=ctk.CTkFont(size=18, weight="bold"), text_color="#0C4A6E").pack(pady=(10, 15))
+
+        # Mapa para { "Nombre Depto": id_depto }
+        deptos_map = {}
+        
+        combo = ctk.CTkComboBox(
+            contenido, 
+            values=["Cargando..."],
+            width=300,
+            height=35
+        )
+        combo.pack(pady=10, padx=10)
+
+        def _cargar_deptos():
+            try:
+                resp = supabase.table("Departamento").select("id_departamento, nombre_departamento").order("nombre_departamento").execute()
+                deptos = resp.data or []
+                
+                if not deptos:
+                    root.after(0, lambda: combo.configure(values=["-- No hay deptos --"]))
+                    return
+                
+                deptos_map.clear()
+                display_names = []
+                
+                for d in deptos:
+                    nombre = d.get('nombre_departamento')
+                    id_depto = d.get('id_departamento')
+                    if nombre and id_depto:
+                        deptos_map[nombre] = id_depto
+                        display_names.append(nombre)
+                
+                root.after(0, lambda: combo.configure(values=display_names))
+                root.after(0, lambda: combo.set(display_names[0]))
+                
+            except Exception as e:
+                print(f"Error cargando departamentos: {e}")
+                root.after(0, lambda: combo.configure(values=["-- Error al cargar --"]))
+
+        def _aplicar():
+            display_seleccionado = combo.get()
+            id_depto = deptos_map.get(display_seleccionado)
+            
+            if id_depto:
+                filtros_especiales['depto_id'] = id_depto
+                filtros_especiales['tecnico_id'] = None # Resetea el otro filtro
+                
+                # --- CAMBIO 1: Actualiza el ComboBox principal ---
+                filtro_estado.set(f"Depto: {display_seleccionado[:20]}...")
+                # --- FIN CAMBIO 1 ---
+                
+                ventana.destroy()
+                renderizar_servicios()
+
+        ctk.CTkButton(contenido, text="Aplicar Filtro", fg_color="#0C4A6E", hover_color="#155E75", corner_radius=10, width=200, height=40, command=_aplicar).pack(pady=(15, 10))
+        
+        threading.Thread(target=_cargar_deptos, daemon=True).start()
+
 
     def manejar_filtro_fecha(opcion):
         if opcion == "Personalizado":
             try:
-                # Importación local para asegurar que la app funcione si tkcalendar no está
                 from tkcalendar import Calendar
             except ImportError:
                 print("Error: tkcalendar no está disponible. No se puede usar el filtro personalizado.")
@@ -673,7 +723,6 @@ def mostrar_pantalla_principal(root):
                 renderizar_servicios()
                 return
 
-            # Ventana TopLevel para seleccionar el rango de fechas
             ventana = ctk.CTkToplevel(root)
             ventana.title("Seleccionar rango de fechas")
             ventana.configure(fg_color="#F7F9FB")
@@ -702,7 +751,6 @@ def mostrar_pantalla_principal(root):
                     return
                 if desde_obj > hasta_obj:
                     return
-                # Guardamos la fecha en formato YYYY-MM-DD para el filtro de texto
                 obtener_servicios_filtrados.rango_personalizado = (str(desde_obj), str(hasta_obj))
                 ventana.destroy()
                 renderizar_servicios()
@@ -719,18 +767,62 @@ def mostrar_pantalla_principal(root):
         else:
             renderizar_servicios()
 
-    filtro_estado_menu = ctk.CTkOptionMenu(title_frame, values=["Todos", "Pendiente", "Recibido", "Completado"], variable=filtro_estado, command=lambda _: renderizar_servicios(), fg_color="#0C4A6E", button_color="#155E75", text_color="white", width=140, height=35, dropdown_fg_color="#E5E7EB", dropdown_text_color="black")
-    filtro_estado_menu.grid(row=0, column=1, padx=5, sticky="e")
+    # --- CAMBIO 1: Nueva función manejadora para el filtro principal ---
+    def manejar_filtro_principal(opcion):
+        """Maneja el menú de filtro principal (estado, tecnico, depto)."""
+        
+        # Si la opción es una de las emergentes, ábrela
+        if opcion == "Por Técnico...":
+            abrir_ventana_seleccionar_tecnico()
+        elif opcion == "Por Departamento...":
+            abrir_ventana_seleccionar_departamento()
+        else:
+            # Si es un filtro de estado (Todos, Pendiente, etc.)
+            # Debemos resetear los filtros especiales de técnico/depto
+            filtros_especiales['tecnico_id'] = None
+            filtros_especiales['depto_id'] = None
+            # Y luego renderizar
+            renderizar_servicios()
+    # --- FIN CAMBIO 1 ---
+
+    # --- CAMBIO 1: Modificación de los filtros en la GUI ---
+    
+    # Valores actualizados y comando nuevo
+    filtro_estado_menu = ctk.CTkOptionMenu(
+        title_frame, 
+        values=["Todos", "Pendiente", "Recibido", "Completado", "Por Técnico...", "Por Departamento..."], 
+        variable=filtro_estado, 
+        command=manejar_filtro_principal, 
+        fg_color="#0C4A6E", 
+        button_color="#155E75", 
+        text_color="white", 
+        width=200, # Ancho aumentado
+        height=35, 
+        dropdown_fg_color="#E5E7EB", 
+        dropdown_text_color="black"
+    )
+    filtro_estado_menu.grid(row=0, column=1, padx=5, sticky="e") # Columna 1
 
     filtro_fecha_menu = ctk.CTkOptionMenu(title_frame, values=["Todos", "Hoy", "Ayer", "Esta semana anterior", "Personalizado"], variable=filtro_fecha, command=manejar_filtro_fecha, fg_color="#0C4A6E", button_color="#155E75", text_color="white", width=180, height=35, dropdown_fg_color="#E5E7EB", dropdown_text_color="black")
-    filtro_fecha_menu.grid(row=0, column=2, padx=5, sticky="e")
+    filtro_fecha_menu.grid(row=0, column=2, padx=5, sticky="e") # Columna 2
 
-    # Botón de Recargar
-    ctk.CTkButton(title_frame, text="", image=reload_icon, width=45, height=45, fg_color="#E5E7EB", hover_color="#CBD5E1", corner_radius=50, command=renderizar_servicios).grid(row=0, column=3, padx=5, sticky="e")
+    # Botón de Recargar (ahora en columna 3)
+    ctk.CTkButton(
+        title_frame, 
+        text="", 
+        image=reload_icon, 
+        width=45, 
+        height=45, 
+        fg_color="#E5E7EB", 
+        hover_color="#CBD5E1", 
+        corner_radius=50, 
+        command=renderizar_servicios
+    ).grid(row=0, column=3, padx=5, sticky="e") # Columna 3
+    
+    # El 'filtro_especial_menu' ha sido eliminado.
+    # --- FIN CAMBIO 1 ---
 
     renderizar_servicios()
-
-
 # Pantalla de Login / Configuración Inicial
 def setup_login_app(root):
 
