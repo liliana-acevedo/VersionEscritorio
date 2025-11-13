@@ -349,16 +349,30 @@ def obtener_servicios_filtrados_base(query_builder):
     try:
         resp = query_builder.execute()
         servicios = resp.data or []
+
+        # Obtener todos los departamentos (id → nombre)
         departamentos = supabase.table("Departamento").select("id_departamento, nombre_departamento").execute().data or []
         dep_map = {str(d["id_departamento"]): d["nombre_departamento"] for d in departamentos}
-        
+
         for s in servicios:
-            dep_id = s.get("departamento")
-            s["Departamento"] = dep_map.get(str(dep_id), "Desconocido")
+            dep_val = s.get("departamento")
+
+            if isinstance(dep_val, (int, float)) or (isinstance(dep_val, str) and dep_val.isdigit()):
+                s["Departamento"] = dep_map.get(str(dep_val), "Desconocido")
+
+            elif isinstance(dep_val, str):
+                s["Departamento"] = dep_val.strip()
+
+            else:
+                s["Departamento"] = "Desconocido"
+
         return servicios
+
     except Exception as e:
         print("Error obtener servicios:", e)
+        
         return []
+
 
 
 # --- PANTALLA DE REGISTRO DE USUARIO ---
@@ -542,7 +556,7 @@ def mostrar_pantalla_principal(root):
         
         export_button_image = ctk.CTkImage(
             PILImage.open(ruta_imagen_boton_exportar), 
-            size=(110, 35) # Ajustado a un tamaño más similar a un botón
+            size=(113, 37) # Ajustado a un tamaño más similar a un botón
         )
     except FileNotFoundError:
         print(f"ADVERTENCIA: No se encontró la imagen del botón de exportar en '{ruta_imagen_boton_exportar}'. Se usará un botón de texto.")
@@ -570,13 +584,30 @@ def mostrar_pantalla_principal(root):
         
         # Aplicar filtro de técnico o departamento
         tecnico_id_val = filtros_especiales.get('tecnico_id')
-        depto_id_val = filtros_especiales.get('id_departamento') # <--- CORREGIDO (decía 'id_departamento')
+        depto_id_val = filtros_especiales.get('depto_id')# <--- CORREGIDO (decía 'id_departamento')
 
-        # Son exclusivos: O filtra por técnico, o por depto
+               # Son exclusivos: O filtra por técnico, o por depto
+                # Son exclusivos: O filtra por técnico, o por depto
         if tecnico_id_val:
             query = query.eq("tecnico", tecnico_id_val)
         elif depto_id_val:
-            query = query.eq("Departamento", depto_id_val) # <--- CORREGIDO (decía 'Departamento')
+            # Obtener el nombre real del departamento desde el mapa
+            departamentos_map = obtener_departamentos()
+            nombre_depto = None
+            for nombre, idd in departamentos_map.items():
+                if idd == depto_id_val:
+                    nombre_depto = nombre.strip().lower()
+                    break
+
+            if nombre_depto:
+                # Intentar filtrar tanto por nombre como por ID (por compatibilidad)
+                try:
+                    query = query.or_(f"departamento.ilike.%{nombre_depto}%,departamento.eq.{depto_id_val}")
+                except Exception:
+                    query = query.ilike("departamento", f"%{nombre_depto}%")
+
+
+
       
 
         # Aplicar filtro de fecha
@@ -766,38 +797,84 @@ def mostrar_pantalla_principal(root):
                 ws = wb.active
                 ws.title = "Servicios"
 
-                # --- Lógica del Título (SIN IMAGEN, como estaba en tu código) ---
+                try:
+                    base_dir = os.path.dirname(os.path.abspath(__file__))
+                    ruta_imagen = os.path.join(base_dir, "imagen", "exportar.png")
+
+                    if os.path.exists(ruta_imagen):
+                        img = OpenpyxlImage(ruta_imagen)
+                        img.width = 290
+                        img.height = 73
+                        ws.add_image(img, "A1")
+
+                        # 📍 Ajustar posición del logo (ligeramente más a la izquierda)
+                        # openpyxl no permite desplazamiento directo, pero podemos reducir el margen en la columna B
+                        ws.column_dimensions['A'].width = 10   # margen más fino
+                        ws.column_dimensions['B'].width = 20   # deja la imagen más cerca del borde visualmente
+                        ws.column_dimensions['C'].width = 2
+
+                        # Bloquear la imagen (no mover ni redimensionar)
+                        try:
+                            piclocks = img.drawing._graphic.graphicData.pic.nonVisualPictureProperties.cNvPicPr.picLocks
+                            piclocks.noMove = True
+                            piclocks.noResize = True
+                        except Exception:
+                            pass
+
+                        fila_titulo = 1
+                    else:
+                        print("Advertencia: no se encontró exportar.png en carpeta imagen.")
+                        fila_titulo = 1
+                except Exception as e:
+                    print(f"Error al insertar la imagen: {e}")
+                    fila_titulo = 1
+
+
+                # === TÍTULO Y SUBTÍTULO CENTRADO PERFECTO ===
+                # Vamos a centrar el texto respecto a todo el rango de columnas con datos
                 ultima_columna_letra = get_column_letter(df.shape[1])
-                
-                ws.merge_cells(f'B1:{ultima_columna_letra}1')
-                # Título corregido a mayúsculas
-                ws['B1'] = "GESTIÓN DE SERVICIOS DGTSP" 
-                ws['B1'].font = Font(name='Arial', size=14, bold=True, color="000000")
-                ws['B1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-                
-                ws.merge_cells(f'B2:{ultima_columna_letra}2')
-                ws['B2'] = "ARAGUA"
-                ws['B2'].font = Font(name='Arial', size=12, bold=True, color="000000")
-                ws['B2'].alignment = Alignment(horizontal='center', vertical='center')
-                # --- Fin Lógica Título ---
-                
-                # 3. Encabezados de la tabla (fila 4)
+
+                # Combinar desde la columna C (más centrado) hasta la última
+                ws.merge_cells(f'C{fila_titulo}:{ultima_columna_letra}{fila_titulo}')
+
+                ws[f'C{fila_titulo}'] = "GESTIÓN DE SERVICIOS DGTSP\nARAGUA"
+                ws[f'C{fila_titulo}'].font = Font(name='Arial', size=14, bold=True, color="000000")
+                ws[f'C{fila_titulo}'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+                # Altura equilibrada
+                ws.row_dimensions[1].height = 45
+
+                # === LIMPIAR VISUALMENTE EL ÁREA DEL LOGO ===
+                for col in ['A', 'B', 'C']:
+                    cell = ws[f"{col}1"]
+                    cell.border = Border(left=None, right=None, top=None, bottom=None)
+                    cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+
+                ws.sheet_view.showGridLines = False  # sin cuadrículas visibles
+
+                # === ENCABEZADOS DE TABLA ===
+                header_row = fila_titulo + 2
                 for col_idx, col_name in enumerate(df.columns, 1):
-                    cell = ws.cell(row=4, column=col_idx, value=col_name)
+                    cell = ws.cell(row=header_row, column=col_idx, value=col_name)
                     cell.font = Font(name='Arial', size=10, bold=True, color="FFFFFF")
                     cell.fill = PatternFill(start_color="1F497D", end_color="1F497D", fill_type="solid")
                     cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-                    cell.border = Border(left=Side(style=BORDER_THIN), right=Side(style=BORDER_THIN), 
-                                         top=Side(style=BORDER_THIN), bottom=Side(style=BORDER_THIN))
+                    cell.border = Border(left=Side(style=BORDER_THIN), right=Side(style=BORDER_THIN),
+                                        top=Side(style=BORDER_THIN), bottom=Side(style=BORDER_THIN))
 
-                # 4. Escribir los datos (desde la fila 5)
-                for r_idx, row in enumerate(df.values, 5):
+                # === ESCRIBIR DATOS ===
+                for r_idx, row in enumerate(df.values, header_row + 1):
                     for c_idx, value in enumerate(row, 1):
                         cell = ws.cell(row=r_idx, column=c_idx, value=value)
                         cell.font = Font(name='Arial', size=9, color="000000")
                         cell.alignment = Alignment(vertical='top', wrap_text=True)
-                        cell.border = Border(left=Side(style=BORDER_THIN), right=Side(style=BORDER_THIN), 
-                                             top=Side(style=BORDER_THIN), bottom=Side(style=BORDER_THIN))
+                        cell.border = Border(left=Side(style=BORDER_THIN), right=Side(style=BORDER_THIN),
+                                            top=Side(style=BORDER_THIN), bottom=Side(style=BORDER_THIN))
+
+
+
+
+
 
                 # 5. Autoajuste del ancho de las columnas (con la corrección para "Estado")
                 for column in ws.columns:
@@ -1100,9 +1177,9 @@ def mostrar_pantalla_principal(root):
             width=100, # Ancho de la imagen (ajustado)
             height=35, # Alto de la imagen (ajustado)
             fg_color="transparent", # Fondo transparente
-            hover_color="#F0F0F0", # Un leve hover para que se vea como botón
+            hover_color="#C3DBB9", # Un leve hover para que se vea como botón
             command=exportar_a_excel
-        ).grid(row=0, column=3, padx=5, sticky="e")
+        ).grid(row=0, column=3, padx=4, sticky="e")
     else: # Si la imagen falla, mostrar un botón de texto
          ctk.CTkButton(
             title_frame, 
