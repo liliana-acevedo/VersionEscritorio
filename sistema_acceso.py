@@ -6,12 +6,13 @@ import threading
 import pandas as pd
 from tkinter import filedialog, messagebox
 from openpyxl import Workbook
-from openpyxl.drawing.image import Image as OpenpyxlImage # Renombrado para evitar conflictos
+from openpyxl.drawing.image import Image as OpenpyxlImage 
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Border, Side, Alignment, PatternFill
 from openpyxl.styles.borders import BORDER_THIN
 import os
-from PIL import Image as PILImage # Importar PIL.Image aquí
+from PIL import Image as PILImage 
+
 
 # Referencias Globales de la Interfaz 
 cedula_entry = None
@@ -664,9 +665,17 @@ def mostrar_pantalla_principal(root):
             
             def _render():
                 cargando_lbl.destroy()
+                
+                # <<<--- SOLUCIÓN 1: Mover scroll al inicio ---
+                # Esta línea le dice al canvas del frame scrollable que se mueva a la posición 0.0 (arriba)
+                scrollable._parent_canvas.yview_moveto(0.0)
+                # --- FIN SOLUCIÓN 1 ---
+                
                 if not servicios:
                     ctk.CTkLabel(scrollable, text="No hay servicios registrados.", font=ctk.CTkFont(size=14)).pack(pady=20)
                     return
+
+
 
                 for s in servicios:
                     estado_text = traducir_estado(s.get("estado"))
@@ -870,11 +879,8 @@ def mostrar_pantalla_principal(root):
                         cell.alignment = Alignment(vertical='top', wrap_text=True)
                         cell.border = Border(left=Side(style=BORDER_THIN), right=Side(style=BORDER_THIN),
                                             top=Side(style=BORDER_THIN), bottom=Side(style=BORDER_THIN))
-
-
-
-
-
+                        
+                        
 
                 # 5. Autoajuste del ancho de las columnas (con la corrección para "Estado")
                 for column in ws.columns:
@@ -914,8 +920,8 @@ def mostrar_pantalla_principal(root):
                         ws.column_dimensions[column_letter].width = adjusted_width
 
                 wb.save(ruta_archivo)
+                os.startfile(ruta_archivo)
                 
-                messagebox.showinfo("Éxito", f"Datos exportados exitosamente a:\n{ruta_archivo}")
 
             except Exception as e:
                 messagebox.showerror("Error al guardar", f"No se pudo guardar el archivo:\n{e}")
