@@ -665,12 +665,8 @@ def mostrar_pantalla_principal(root):
             
             def _render():
                 cargando_lbl.destroy()
-                
-                # <<<--- SOLUCIÓN 1: Mover scroll al inicio ---
-                # Esta línea le dice al canvas del frame scrollable que se mueva a la posición 0.0 (arriba)
                 scrollable._parent_canvas.yview_moveto(0.0)
-                # --- FIN SOLUCIÓN 1 ---
-                
+
                 if not servicios:
                     ctk.CTkLabel(scrollable, text="No hay servicios registrados.", font=ctk.CTkFont(size=14)).pack(pady=20)
                     return
