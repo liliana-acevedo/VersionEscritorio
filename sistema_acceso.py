@@ -573,7 +573,18 @@ def mostrar_pantalla_principal(root):
     scrollable.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
 
     # Funciones de Lógica de la Lista
+    
+    
+    
+    
+  #===================================================================================================================================0000000000000000000000000000000
+#==================================================================================================================================================================
+# PANTALLA PRINCIPAL (Lista de Servicios) 
+# ... (Aquí va todo tu código anterior de 'mostrar_pantalla_principal') ...
+
+    # Funciones de Lógica de la Lista
     def obtener_servicios_filtrados():
+        # ... (Esta función no necesita cambios, se queda igual) ...
         query = supabase.table("Servicio").select("*").order("id_servicio", desc=True)
         estado_map = {"Pendiente": 1, "Completado": 2, "Recibido": 3}
         estado_val = filtro_estado.get()
@@ -646,6 +657,10 @@ def mostrar_pantalla_principal(root):
         return obtener_servicios_filtrados_base(query)
 
     def renderizar_servicios():
+        """
+        Limpia el scrollable y renderiza las nuevas tarjetas de servicio.
+        ¡VERSIÓN CON 1 TARJETA POR FILA Y 3 COLUMNAS INTERNAS!
+        """
 
         for w in scrollable.winfo_children():
             w.destroy()
@@ -666,55 +681,223 @@ def mostrar_pantalla_principal(root):
             def _render():
                 cargando_lbl.destroy()
                 scrollable._parent_canvas.yview_moveto(0.0)
+                scrollable.grid_columnconfigure(0, weight=1)
+
+                # --- CAMBIO IMPORTANTE ---
+                # Ya no se configura grid de 2 columnas en 'scrollable'
+                # -------------------------
 
                 if not servicios:
                     ctk.CTkLabel(scrollable, text="No hay servicios registrados.", font=ctk.CTkFont(size=14)).pack(pady=20)
                     return
 
+                # --- INICIO: Definiciones de Diseño de la Nueva Tarjeta ---
+                
+                COLOR_HEADER_BG = "#0A2B4C"
+                COLOR_BODY_BG = "#F5F5ED"
+                COLOR_HEADER_TEXT = "#FFFFFF"
+                COLOR_TITLE_TEXT = "#2E2E2E"
+                COLOR_DETAIL_TEXT = "#4A4A4A"
+                CARD_CORNER_RADIUS = 8
+                COLOR_SEPARATOR = "#DCDCDC" # Color para las líneas
+
+                FONT_HEADER = ctk.CTkFont(size=18, weight="bold")
+                FONT_TITLE = ctk.CTkFont(size=16, weight="bold")
+                FONT_DETAIL = ctk.CTkFont(size=14) 
+                FONT_PILL = ctk.CTkFont(size=11, weight="bold")
+
+                colores_estado = {
+                    "Completado": ("#D1FAE5", "#047857", "#047857"),
+                    "Pendiente":  ("#FEF3C7", "#92400E", "#92400E"),
+                    "Recibido":   ("#DBEAFE", "#1E3A8A", "#1E3A8A"),
+                    "Desconocido": ("#F3F4F6", "#374151", "#374151")
+                }
+                # --- FIN: Definiciones de Diseño ---
 
 
-                for s in servicios:
+                # --- INICIO: Bucle de Renderizado con Nuevo Diseño ---
+                
+                # Se elimina la lógica de 'index' y 'current_row_frame'
+                
+                for index, s in enumerate(servicios):
                     estado_text = traducir_estado(s.get("estado"))
-                    color_estado = {
-                        "Pendiente": ("#FEF3C7", "#92400E"),
-                        "Completado": ("#D1FAE5", "#047857"),
-                        "Recibido": ("#DBEAFE", "#1E3A8A")
-                    }.get(estado_text, ("#F3F4F6", "#374151"))
+                    color_bg, color_border, color_text = colores_estado.get(estado_text, colores_estado["Desconocido"])
 
-                    card = ctk.CTkFrame(scrollable, fg_color="#FBFAFF", corner_radius=12, border_width=1, border_color="#E6E6E6")
-                    card.pack(fill="x", padx=20, pady=10, expand=True)
+                    # 1. Contenedor principal
+                    card_main = ctk.CTkFrame(
+                        scrollable, # El padre vuelve a ser 'scrollable'
+                        fg_color=COLOR_BODY_BG, 
+                        corner_radius=CARD_CORNER_RADIUS,
+                        border_color="#DCDCDC",
+                        border_width=1
+                    )
+                    
+                    # --- CAMBIO: Se vuelve a usar .pack() ---
+                    card_main.grid(row=index, column=0, sticky="ew", padx=15, pady=5)
 
-                    header = ctk.CTkFrame(card, fg_color="transparent")
-                    header.pack(fill="x", padx=12, pady=(10, 6))
-                    ctk.CTkLabel(header, text=f"Servicio #{s.get('id_servicio')}", font=ctk.CTkFont(size=16, weight="bold")).pack(side="left")
+                    # --- Configuración interna de la tarjeta ---
+                    card_main.grid_columnconfigure(0, weight=1) 
+                    # Fila 0: Encabezado (no se estira)
+                    card_main.grid_rowconfigure(0, weight=0)
+                    # Fila 1: Cuerpo (se estira)
+                    card_main.grid_rowconfigure(1, weight=0) 
+
+                    # 2. Encabezado (Azul)
+                    header_frame = ctk.CTkFrame(card_main, fg_color=COLOR_HEADER_BG, corner_radius=0)
+                    header_frame.grid(row=0, column=0, sticky="ew")
+                    ctk.CTkLabel(
+                        header_frame, 
+                        text=f" SERVICIO #{s.get('id_servicio')}", 
+                        font=FONT_HEADER, 
+                        text_color=COLOR_HEADER_TEXT,
+                        anchor="w"
+                    ).pack(fill="x", padx=15, pady=10) 
+
+                    # 3. Contenedor del Cuerpo (Grid)
+                    body_container = ctk.CTkFrame(card_main, fg_color="transparent")
+                    body_container.grid(row=1, column=0, sticky="nsew", padx=15, pady=(5, 5))
 
                     
-                    pill = ctk.CTkFrame(header, fg_color=color_estado[0], corner_radius=20)
-                    pill.pack(side="right")
-                    ctk.CTkLabel(pill, text=estado_text, text_color=color_estado[1], font=ctk.CTkFont(size=11, weight="bold")).pack(padx=12, pady=4)
+                    # Columna de texto (con las 3 sub-columnas)
+                    body_container.grid_columnconfigure(0, weight=1) 
+                    # Columna de insignia
+                    body_container.grid_columnconfigure(1, weight=0) 
+                    
+                    # --- CAMBIO: Se elimina la lógica de centrado vertical ---
+                    # El contenido vuelve a la Fila 0
+                    
+                    # 3a. Frame de detalles (se coloca en la fila 0)
+                    details_frame = ctk.CTkFrame(body_container, fg_color="transparent")
+                    details_frame.grid(row=0, column=0, sticky="nsew") # Fila 0
 
+                    # Título (arriba)
+                    ctk.CTkLabel(
+                        details_frame, 
+                        text=(s.get('descripcion') or "Sin descripción").capitalize(), 
+                        font=FONT_TITLE, 
+                        text_color=COLOR_TITLE_TEXT, 
+                        anchor="w"
+                    ).pack(fill="x", pady=(0, 4)) # Espacio después del título
+
+                    # Frame para las 3 columnas de abajo
+                    columns_frame = ctk.CTkFrame(details_frame, fg_color="transparent")
+                    columns_frame.pack(fill="x")
+                    columns_frame.grid_columnconfigure((0, 2, 4), weight=1)
+                    columns_frame.grid_columnconfigure((1, 3), weight=0)
+                    columns_frame.grid_rowconfigure(0, weight=0)
+
+                    # --- Columna 1 ---
+                    col1_frame = ctk.CTkFrame(columns_frame, fg_color="transparent")
+                    col1_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+                    
+                    ctk.CTkLabel(
+                        col1_frame, 
+                        text=f"Usuario: {usuarios_map.get(str(s.get('usuario')), 'Desconocido')}", 
+                        font=FONT_DETAIL, 
+                        text_color=COLOR_DETAIL_TEXT, 
+                        anchor="w"
+                    ).pack(fill="x", pady=0)
+                    ctk.CTkLabel(
+                        col1_frame, 
+                        text=f"Departamento: {s.get('Departamento', 'Desconocido')}", 
+                        font=FONT_DETAIL, 
+                        text_color=COLOR_DETAIL_TEXT, 
+                        anchor="w"
+                    ).pack(fill="x")
+
+                    # --- Separador 1 ---
+                    ctk.CTkFrame(columns_frame, width=2, fg_color=COLOR_SEPARATOR).grid(row=0, column=1, sticky="ns", pady=2)
+
+                    # --- Columna 2 ---
+                    col2_frame = ctk.CTkFrame(columns_frame, fg_color="transparent")
+                    col2_frame.grid(row=0, column=2, sticky="nsew", padx=5)
+                    
+                    ctk.CTkLabel(
+                        col2_frame, 
+                        text=f"Técnico: {usuarios_map.get(str(s.get('tecnico')), 'Sin asignar')}", 
+                        font=FONT_DETAIL, 
+                        text_color=COLOR_DETAIL_TEXT, 
+                        anchor="w"
+                    ).pack(fill="x")
+                    
                     reporte_valor = s.get("reporte")
                     if not reporte_valor or str(reporte_valor).strip().lower() in ["none", "null", ""]:
-                        reporte_valor = "No registrado"
+                        reporte_valor = "Sin reporte"
+                    ctk.CTkLabel(
+                        col2_frame, 
+                        text=f"Reporte: {reporte_valor}",
+                        font=FONT_DETAIL, 
+                        text_color=COLOR_DETAIL_TEXT, 
+                        anchor="w"
+                    ).pack(fill="x")
 
-                    # Bloque de información del servicio
-                    info_text = (
-                        f"Descripción: {s.get('descripcion')}\n"
-                        f"Usuario: {usuarios_map.get(str(s.get('usuario')), 'Desconocido')}\n"
-                        f"Técnico: {usuarios_map.get(str(s.get('tecnico')), 'Sin asignar')}\n"
-                        f"Departamento: {s.get('departamento', 'Desconocido')}\n" # <--- CORREGIDO Desconocido (usar 'Departamento' con minuscula)
-                        f"Fecha creación: {formatear_fecha(s.get('fecha'))}\n"
-                        f"Fecha culminación: {formatear_fecha(s.get('fecha_culminado'))}\n"
-                        f"Reporte: {reporte_valor}"
+                    # --- Separador 2 ---
+                    ctk.CTkFrame(columns_frame, width=2, fg_color=COLOR_SEPARATOR).grid(row=0, column=3, sticky="ns", pady=2)
+
+                    # --- Columna 3 ---
+                    col3_frame = ctk.CTkFrame(columns_frame, fg_color="transparent")
+                    col3_frame.grid(row=0, column=4, sticky="nsew", padx=(5, 0))
+
+                    ctk.CTkLabel(
+                        col3_frame, 
+                        text=f"Fecha creación: {formatear_fecha(s.get('fecha'))}", 
+                        font=FONT_DETAIL, 
+                        text_color=COLOR_DETAIL_TEXT, 
+                        anchor="w"
+                    ).pack(fill="x")
+                    ctk.CTkLabel(
+                        col3_frame, 
+                        text=f"Fecha de culminación: {formatear_fecha(s.get('fecha_culminado'))}", 
+                        font=FONT_DETAIL, 
+                        text_color=COLOR_DETAIL_TEXT, 
+                        anchor="w"
+                    ).pack(fill="x")
+                    
+
+                    # 3b. Insignia (Pill)
+                    pill = ctk.CTkFrame(
+                        body_container, 
+                        fg_color=color_bg, 
+                        border_color=color_border, 
+                        border_width=1, 
+                        corner_radius=14 
                     )
+                    # Vuelve a la Fila 0, alineado a la esquina inferior derecha
+                    pill.grid(row=0, column=1, padx=(10, 0), pady=(0,3), sticky="se") 
+                    
+                    ctk.CTkLabel(
+                        pill, 
+                        text=estado_text.upper(), 
+                        text_color=color_text, 
+                        font=FONT_PILL
+                    ).pack(padx=12, pady=5) 
 
-                    ctk.CTkLabel(card, text=info_text, justify="left", anchor="w", text_color="#1F2937",
-                                 font=ctk.CTkFont(size=12), wraplength=1000).pack(fill="x", padx=20, pady=(0, 12))
+
+                # --- FIN: Bucle de Renderizado ---
 
             scrollable.after(0, _render)
 
         threading.Thread(target=tarea, daemon=True).start()
+    
+   
+    
+ 
 
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     # --- INICIO: CÓDIGO CORREGIDO PARA EXPORTAR ---
     # La función 'exportar_a_excel' debe estar definida aquí
