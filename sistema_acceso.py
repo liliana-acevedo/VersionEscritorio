@@ -37,10 +37,6 @@ except ImportError as e:
 cedula_entry = None
 notificacion = None
 app_root = None
-# Referencia global para la imagen de fondo del login para redimensionar
-fondo_ctk_img_login = None 
-fondo_label_login = None
-original_fondo_img = None # AÑADIDO: Almacena la imagen PIL original sin redimensionar
 
 # Referencias para la Pantalla 'Agregar Usuario' 
 registro_entries = {}
@@ -595,6 +591,9 @@ def traducir_estado(valor):
     return {1: "Pendiente", 2: "Completado", 3: "Recibido"}.get(int(valor), "Desconocido") if valor else "Desconocido"
 
 
+
+
+
 def obtener_servicios_filtrados_base(query_builder):
     try:
         resp = query_builder.execute()
@@ -934,6 +933,14 @@ def mostrar_pantalla_registro(root):
                   command=_on_registrar).pack(pady=(10, 6))
 
 
+
+
+
+
+
+
+
+
 # PANTALLA PRINCIPAL (Lista de Servicios) 
 def mostrar_pantalla_principal(root):
     _clear_widgets(root)
@@ -961,25 +968,6 @@ def mostrar_pantalla_principal(root):
                  font=ctk.CTkFont(size=22, weight="bold"), text_color="white").grid(
         row=0, column=0, padx=20, pady=15, sticky="w")
 
-    # Botones de navegación/acción 
-    ctk.CTkButton(header_frame, text="AGREGAR DEPARTAMENTO", fg_color="#16A34A",
-                  hover_color="#15803D",
-                  font=ctk.CTkFont(size=13, weight="bold"),
-                  corner_radius=8, width=180, height=40,
-                  command=lambda: mostrar_pantalla_agregar_departamento(root)
-                  ).grid(row=0, column=1, padx=(10, 5), pady=12, sticky="e")
-
-    ctk.CTkButton(header_frame, text="AGREGAR USUARIO", fg_color="#3D89D1",
-                  hover_color="#1E3D8F",
-                  font=ctk.CTkFont(size=13, weight="bold"),
-                  corner_radius=8, width=140, height=40,
-                  command=lambda: mostrar_pantalla_registro(root)
-                  ).grid(row=0, column=2, padx=(10, 5), pady=12, sticky="e")
-
-    ctk.CTkButton(header_frame, text="CERRAR SESIÓN", fg_color="#C82333",
-                  hover_color="#A31616", command=lambda: cerrar_sesion(root),
-                  font=ctk.CTkFont(size=13, weight="bold"),
-                  corner_radius=8, width=130, height=40).grid(row=0, column=3, padx=10, pady=12, sticky="e")
 
     # Contenedor principal de la tabla/lista
     table_card = ctk.CTkFrame(main_frame, fg_color="white", corner_radius=15)
@@ -997,7 +985,7 @@ def mostrar_pantalla_principal(root):
 
     # Carga de Logo
     try:
-        logo_img = ctk.CTkImage(PILImage.open("imagen/aragua1.png"), size=(140, 60))
+        logo_img = ctk.CTkImage(PILImage.open("imagen/exportar.png"), size=(200, 60))
         ctk.CTkLabel(title_frame, image=logo_img, text="").grid(row=0, column=0, sticky="w", padx=(10, 0))
     except Exception as e:
         print("No se pudo cargar el logo:", e)
@@ -1010,40 +998,146 @@ def mostrar_pantalla_principal(root):
     except Exception:
         reload_icon = None
 
-    # --- FIN: CÓDIGO CORREGIDO PARA IMAGEN DE BOTÓN EXPORTAR ---
-
-    # --- INICIO: NUEVA IMAGEN PARA BOTÓN GRÁFICOS ---
+    # --- (INICIO) NUEVAS IMÁGENES PARA EL HEADER ---
     try:
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        # Asumimos que tienes un ícono para gráficos llamado 'btn_graficos.png'
-        ruta_imagen_boton_graficos = os.path.join(base_dir, "imagen", "btn_graficos.png") 
+        icon_depto = ctk.CTkImage(PILImage.open("imagen/departamento.png"), size=(25, 25))
+    except Exception as e:
+        print(f"Error al cargar imagen/departamento.png: {e}")
+        icon_depto = None
+    
+    try:
+        icon_usuario = ctk.CTkImage(PILImage.open("imagen/usuario.png"), size=(25, 25))
+    except Exception as e:
+        print(f"Error al cargar imagen/usuario.png: {e}")
+        icon_usuario = None
         
-        graficos_button_image = ctk.CTkImage(
-            PILImage.open(ruta_imagen_boton_graficos), 
-            size=(113, 37) # Mismo tamaño que el de exportar
+    try:
+        # El usuario pidió 'seccion.png' (para "cerrar sección")
+        icon_sesion = ctk.CTkImage(PILImage.open("imagen/seccion.png"), size=(25, 25))
+    except Exception as e:
+        print(f"Error al cargar imagen/seccion.png: {e}")
+        icon_sesion = None
+    # --- (FIN) NUEVAS IMÁGENES PARA EL HEADER ---
+
+    # --- INICIO: CÓDIGO CORREGIDO PARA IMAGEN DE BOTÓN EXPORTAR ---
+    try:
+        # Usar os.path.join para construir la ruta de forma segura
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # --- ¡CORRECCIÓN IMPORTANTE! El archivo se llama 'bnexcel.png' ---
+        ruta_imagen_boton_exportar = os.path.join(base_dir, "imagen", "btn_exportar.png") 
+        
+        export_button_image = ctk.CTkImage(
+            PILImage.open(ruta_imagen_boton_exportar), 
+            size=(113, 37) # Ajustado a un tamaño más similar a un botón
         )
     except FileNotFoundError:
-        print(f"ADVERTENCIA: No se encontró 'imagen/btn_graficos.png'. Se usará un botón de texto.")
-        graficos_button_image = None
+        print(f"ADVERTENCIA: No se encontró la imagen del botón de exportar en '{ruta_imagen_boton_exportar}'. Se usará un botón de texto.")
+        export_button_image = None
+    except Exception as e:
+        print(f"Error al cargar la imagen del botón de exportar: {e}. Se usará un botón de texto.")
+        export_button_image = None
+    # --- FIN: CÓDIGO CORREGIDO PARA IMAGEN DE BOTÓN EXPORTAR ---
+
+    # --- INICIO: NUEVA IMAGEN PARA BOTÓN GRÁFICOS (ACTUALIZADO) ---
+    # AHORA CARGAMOS 'grafica.png' COMO UN ICONO PEQUEÑO
+    try:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        # CAMBIO: Usar 'grafica.png' según la solicitud del usuario
+        ruta_imagen_graficos_icon = os.path.join(base_dir, "imagen", "grafica.png") 
+        
+        icon_graficos = ctk.CTkImage(
+            PILImage.open(ruta_imagen_graficos_icon), 
+            size=(25, 25) # Cargar como un icono
+        )
+    except FileNotFoundError:
+        print(f"ADVERTENCIA: No se encontró 'imagen/grafica.png'. Se usará un botón de texto.")
+        icon_graficos = None
     except Exception as e:
         print(f"Error al cargar la imagen del botón de gráficos: {e}. Se usará un botón de texto.")
-        graficos_button_image = None
+        icon_graficos = None
     # --- FIN: NUEVA IMAGEN PARA BOTÓN GRÁFICOS ---
 
     # --- FIN: CARGA DE IMÁGENES ---
 
-# --- FIN: CARGA DE IMÁGENES ---
+    # --- (INICIO) BOTONES DE NAVEGACIÓN CON ÍCONOS Y COLOR DE FONDO ---
     
+    # Botón 1: AGREGAR DEPARTAMENTO
+    if icon_depto:
+        ctk.CTkButton(header_frame, text="", 
+                      image=icon_depto,
+                      fg_color="#16A34A",       # <-- CAMBIO: Color verde original
+                      hover_color="#15803D",    # <-- CAMBIO: Hover verde
+                      width=40, height=40,
+                      corner_radius=8,       # <-- Añadido: para que se vea bien
+                      command=lambda: mostrar_pantalla_agregar_departamento(root)
+                      ).grid(row=0, column=1, padx=(10, 5), pady=12, sticky="e")
+    else:
+        # Fallback a botón de texto si la imagen no carga
+        ctk.CTkButton(header_frame, text="AGREGAR DEPARTAMENTO", fg_color="#16A34A",
+                      hover_color="#15803D",
+                      font=ctk.CTkFont(size=13, weight="bold"),
+                      corner_radius=8, width=180, height=40,
+                      command=lambda: mostrar_pantalla_agregar_departamento(root)
+                      ).grid(row=0, column=1, padx=(10, 5), pady=12, sticky="e")
+
+    # Botón 2: AGREGAR USUARIO
+    if icon_usuario:
+        ctk.CTkButton(header_frame, text="", 
+                      image=icon_usuario,
+                      fg_color="#3D89D1",       # <-- CAMBIO: Color azul original
+                      hover_color="#1E3D8F",    # <-- CAMBIO: Hover azul
+                      width=40, height=40,
+                      corner_radius=8,
+                      command=lambda: mostrar_pantalla_registro(root)
+                      ).grid(row=0, column=2, padx=(10, 5), pady=12, sticky="e")
+    else:
+         # Fallback a botón de texto si la imagen no carga
+        ctk.CTkButton(header_frame, text="AGREGAR USUARIO", fg_color="#3D89D1",
+                      hover_color="#1E3D8F",
+                      font=ctk.CTkFont(size=13, weight="bold"),
+                      corner_radius=8, width=140, height=40,
+                      command=lambda: mostrar_pantalla_registro(root)
+                      ).grid(row=0, column=2, padx=(10, 5), pady=12, sticky="e")
+
+    # Botón 3: CERRAR SESIÓN
+    if icon_sesion:
+        ctk.CTkButton(header_frame, text="", 
+                      image=icon_sesion,
+                      fg_color="#C82333",       # <-- CAMBIO: Color rojo original
+                      hover_color="#A31616",    # <-- CAMBIO: Hover rojo
+                      width=40, height=40,
+                      corner_radius=8,
+                      command=lambda: cerrar_sesion(root)
+                      ).grid(row=0, column=3, padx=10, pady=12, sticky="e")
+    else:
+        # Fallback a botón de texto si la imagen no carga
+        ctk.CTkButton(header_frame, text="CERRAR SESIÓN", fg_color="#C82333",
+                      hover_color="#A31616", command=lambda: cerrar_sesion(root),
+                      font=ctk.CTkFont(size=13, weight="bold"),
+                      corner_radius=8, width=130, height=40).grid(row=0, column=3, padx=10, pady=12, sticky="e")
+
+    # --- (FIN) BOTONES DE NAVEGACIÓN ---
+
     scrollable = ctk.CTkScrollableFrame(table_card, corner_radius=10)
     scrollable.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
 
     # Funciones de Lógica de la Lista
+   
     def obtener_servicios_filtrados():
-        
         query = supabase.table("Servicio").select("*").order("id_servicio", desc=True)
         estado_map = {"Pendiente": 1, "Completado": 2, "Recibido": 3}
         estado_val = filtro_estado.get()
+        fecha_val = filtro_fecha.get() # <-- LÍNEA NUEVA: Obtenemos el valor del filtro de fecha
         
+        # --- OPTIMIZACIÓN DE CARGA INICIAL ---
+        # Si AMBOS filtros están en "Todos", aplicamos el límite de 100
+        # para que la carga inicial sea súper rápida.
+        if estado_val == "Todos" and fecha_val == "Todos": # <-- LÍNEA NUEVA
+            query = query.limit(100) # <-- LÍNEA NUEVA
+        # Si se aplica CUALQUIER otro filtro, esta condición no se cumple
+        # y la consulta buscará en TODOS los registros (sin límite).
+
         # Aplicar filtro de estado
         if estado_val in estado_map:
             query = query.eq("estado", estado_map[estado_val])
@@ -1073,7 +1167,7 @@ def mostrar_pantalla_principal(root):
                     query = query.ilike("departamento", f"%{nombre_depto}%")
 
         # Aplicar filtro de fecha
-        fecha_val = filtro_fecha.get()
+        # (El valor de fecha_val ya lo obtuvimos arriba)
         
         hoy_date = datetime.now().date()
         
@@ -1090,7 +1184,7 @@ def mostrar_pantalla_principal(root):
             fin_str = fin_date.isoformat()
             query = query.gte("fecha", inicio_str).lt("fecha", fin_str)
 
-        elif fecha_val == "Esta semana anterior":
+        elif fecha_val == "Semana anterior":
             inicio_esta_semana = hoy_date - timedelta(days=hoy_date.weekday())
             inicio_semana_anterior = inicio_esta_semana - timedelta(days=7)
             fin_semana_anterior = inicio_esta_semana
@@ -1105,6 +1199,12 @@ def mostrar_pantalla_principal(root):
             query = query.gte("fecha", desde_str).lt("fecha", fin_rango_exclusivo.isoformat())
 
         return obtener_servicios_filtrados_base(query)
+
+
+
+
+
+
 
     def renderizar_servicios():
         """
@@ -1149,7 +1249,7 @@ def mostrar_pantalla_principal(root):
 
                 FONT_HEADER = ctk.CTkFont(size=18, weight="bold")
                 FONT_TITLE = ctk.CTkFont(size=16, weight="bold")
-                FONT_DETAIL = ctk.CTkFont(size=14) 
+                FONT_DETAIL = ctk.CTkFont(size=15) # Con el tamaño 15 que ajustamos
                 FONT_PILL = ctk.CTkFont(size=11, weight="bold")
 
                 colores_estado = {
@@ -1160,8 +1260,13 @@ def mostrar_pantalla_principal(root):
                 }
                 # --- FIN: Definiciones de Diseño ---
 
-
                 # --- INICIO: Bucle de Renderizado con Nuevo Diseño ---
+                
+                # --- (INICIO) DEFINICIÓN DE ANCHOS ---
+                col_min_width = 340 
+                wrap_width = col_min_width - 15 
+                # --- (FIN) DEFINICIÓN DE ANCHOS ---
+
                 
                 for index, s in enumerate(servicios):
                     estado_text = traducir_estado(s.get("estado"))
@@ -1180,9 +1285,7 @@ def mostrar_pantalla_principal(root):
 
                     # --- Configuración interna de la tarjeta ---
                     card_main.grid_columnconfigure(0, weight=1) 
-                    # Fila 0: Encabezado (no se estira)
                     card_main.grid_rowconfigure(0, weight=0)
-                    # Fila 1: Cuerpo (se estira)
                     card_main.grid_rowconfigure(1, weight=0) 
 
                     # 2. Encabezado (Azul)
@@ -1210,72 +1313,98 @@ def mostrar_pantalla_principal(root):
                     details_frame = ctk.CTkFrame(body_container, fg_color="transparent")
                     details_frame.grid(row=0, column=0, sticky="nsew")
 
-                    # Título (arriba)
+                    # --- Título (CON TEXT-WRAPPING) ---
+                    titulo_val = (s.get('descripcion') or "Sin descripción").capitalize()
+                        
                     ctk.CTkLabel(
                         details_frame, 
-                        text=(s.get('descripcion') or "Sin descripción").capitalize(), 
+                        text=titulo_val, 
                         font=FONT_TITLE, 
                         text_color=COLOR_TITLE_TEXT, 
-                        anchor="w"
+                        anchor="w",
+                        justify="left", # <-- Arregla la indentación
+                        wraplength= (col_min_width * 3) - 50 
                     ).pack(fill="x", pady=(0, 4))
 
                     # Frame para las 3 columnas de abajo
                     columns_frame = ctk.CTkFrame(details_frame, fg_color="transparent")
                     columns_frame.pack(fill="x")
-                    columns_frame.grid_columnconfigure((0, 2, 4), weight=1)
-                    columns_frame.grid_columnconfigure((1, 3), weight=0)
-                    columns_frame.grid_rowconfigure(0, weight=0)
+                    
+                    # --- Forzamos un ancho mínimo para cada columna de datos ---
+                    columns_frame.grid_columnconfigure(0, weight=1, minsize=col_min_width)
+                    columns_frame.grid_columnconfigure(2, weight=1, minsize=col_min_width)
+                    columns_frame.grid_columnconfigure(4, weight=1, minsize=col_min_width)
+                    
+                    columns_frame.grid_columnconfigure((1, 3), weight=0) # Separadores no crecen
+                    columns_frame.grid_rowconfigure(0, weight=1) # Fila expandible
 
-                    # --- Columna 1 ---
+                    # --- Columna 1 (CON TEXT-WRAPPING) ---
                     col1_frame = ctk.CTkFrame(columns_frame, fg_color="transparent")
+                    # --- CAMBIO IMPORTANTE: "sticky" vuelve a "nsew" ---
                     col1_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
                     
-                    ctk.CTkLabel(
-                        col1_frame, 
-                        text=f"Usuario: {usuarios_map.get(str(s.get('usuario')), 'Desconocido')}", 
-                        font=FONT_DETAIL, 
-                        text_color=COLOR_DETAIL_TEXT, 
-                        anchor="w"
-                    ).pack(fill="x", pady=0)
-                    ctk.CTkLabel(
-                        col1_frame, 
-                        text=f"Departamento: {s.get('Departamento', 'Desconocido')}", 
-                        font=FONT_DETAIL, 
-                        text_color=COLOR_DETAIL_TEXT, 
-                        anchor="w"
-                    ).pack(fill="x")
-
-                    # --- Separador 1 ---
-                    ctk.CTkFrame(columns_frame, width=2, fg_color=COLOR_SEPARATOR).grid(row=0, column=1, sticky="ns", pady=2)
-
-                    # --- Columna 2 ---
-                    col2_frame = ctk.CTkFrame(columns_frame, fg_color="transparent")
-                    col2_frame.grid(row=0, column=2, sticky="nsew", padx=5)
+                    usuario_val = usuarios_map.get(str(s.get('usuario')), 'Desconocido')
+                    depto_val = s.get('Departamento', 'Desconocido')
                     
                     ctk.CTkLabel(
-                        col2_frame, 
-                        text=f"Técnico: {usuarios_map.get(str(s.get('tecnico')), 'Sin asignar')}", 
+                        col1_frame, 
+                        text=f"Usuario: {usuario_val}", 
                         font=FONT_DETAIL, 
                         text_color=COLOR_DETAIL_TEXT, 
-                        anchor="w"
-                    ).pack(fill="x")
+                        anchor="w",
+                        justify="left", # <-- Arregla la indentación
+                        wraplength=wrap_width 
+                    ).pack(fill="x", pady=0, anchor="w") # <-- "anchor" alinea arriba
+                    ctk.CTkLabel(
+                        col1_frame, 
+                        text=f"Departamento: {depto_val}", 
+                        font=FONT_DETAIL, 
+                        text_color=COLOR_DETAIL_TEXT, 
+                        anchor="w",
+                        justify="left", # <-- Arregla la indentación
+                        wraplength=wrap_width
+                    ).pack(fill="x", pady=0, anchor="w") # <-- "anchor" alinea arriba
+
+                    # --- Separador 1 ---
+                    ctk.CTkFrame(columns_frame, width=2, fg_color=COLOR_SEPARATOR).grid(row=0, column=1, sticky="ns")
+
+                    # --- Columna 2 (CON TEXT-WRAPPING) ---
+                    col2_frame = ctk.CTkFrame(columns_frame, fg_color="transparent")
+                    # --- CAMBIO IMPORTANTE: "sticky" vuelve a "nsew" ---
+                    col2_frame.grid(row=0, column=2, sticky="nsew", padx=5)
+                    
+                    tecnico_val = usuarios_map.get(str(s.get('tecnico')), 'Sin asignar')
+                        
+                    ctk.CTkLabel(
+                        col2_frame, 
+                        text=f"Técnico: {tecnico_val}", 
+                        font=FONT_DETAIL, 
+                        text_color=COLOR_DETAIL_TEXT, 
+                        anchor="w",
+                        justify="left", # <-- Arregla la indentación
+                        wraplength=wrap_width 
+                    ).pack(fill="x", pady=0, anchor="w") # <-- "anchor" alinea arriba
                     
                     reporte_valor = s.get("reporte")
                     if not reporte_valor or str(reporte_valor).strip().lower() in ["none", "null", ""]:
                         reporte_valor = "Sin reporte"
+                        
                     ctk.CTkLabel(
                         col2_frame, 
                         text=f"Reporte: {reporte_valor}",
                         font=FONT_DETAIL, 
                         text_color=COLOR_DETAIL_TEXT, 
-                        anchor="w"
-                    ).pack(fill="x")
+                        anchor="w",
+                        justify="left", # <-- Arregla la indentación
+                        wraplength=wrap_width 
+                    ).pack(fill="x", pady=0, anchor="w") # <-- "anchor" alinea arriba
 
                     # --- Separador 2 ---
-                    ctk.CTkFrame(columns_frame, width=2, fg_color=COLOR_SEPARATOR).grid(row=0, column=3, sticky="ns", pady=2)
+                    ctk.CTkFrame(columns_frame, width=2, fg_color=COLOR_SEPARATOR).grid(row=0, column=3, sticky="ns")
 
-                    # --- Columna 3 ---
+                    # --- Columna 3 (Las fechas no necesitan wrap) ---
                     col3_frame = ctk.CTkFrame(columns_frame, fg_color="transparent")
+                    # --- CAMBIO IMPORTANTE: "sticky" vuelve a "nsew" ---
                     col3_frame.grid(row=0, column=4, sticky="nsew", padx=(5, 0))
 
                     ctk.CTkLabel(
@@ -1283,17 +1412,18 @@ def mostrar_pantalla_principal(root):
                         text=f"Fecha creación: {formatear_fecha(s.get('fecha'))}", 
                         font=FONT_DETAIL, 
                         text_color=COLOR_DETAIL_TEXT, 
-                        anchor="w"
-                    ).pack(fill="x")
+                        anchor="w",
+                        justify="left"
+                    ).pack(fill="x", pady=0, anchor="w") # <-- "anchor" alinea arriba
                     ctk.CTkLabel(
                         col3_frame, 
                         text=f"Fecha de culminación: {formatear_fecha(s.get('fecha_culminado'))}", 
                         font=FONT_DETAIL, 
                         text_color=COLOR_DETAIL_TEXT, 
-                        anchor="w"
-                    ).pack(fill="x")
+                        anchor="w",
+                        justify="left"
+                    ).pack(fill="x", pady=0, anchor="w") # <-- "anchor" alinea arriba
                     
-
                     # 3b. Insignia (Pill)
                     pill = ctk.CTkFrame(
                         body_container, 
@@ -1314,6 +1444,10 @@ def mostrar_pantalla_principal(root):
             scrollable.after(0, _render)
 
         threading.Thread(target=tarea, daemon=True).start()
+        
+        
+        
+        
     
     def exportar_a_excel():
         """
@@ -1782,30 +1916,32 @@ def mostrar_pantalla_principal(root):
         ).grid(row=0, column=3, padx=5, sticky="e")
     
     # --- NUEVO BOTÓN DE GRÁFICOS (Columna 4) ---
-    if graficos_button_image:
+    if icon_graficos: # Si el ICONO 'grafica.png' se cargó
         ctk.CTkButton(
             title_frame,
-            text="",
-            image=graficos_button_image,
-            width=100,
-            height=35,
-            fg_color="transparent",
-            hover_color="#D6DFF0", # Un hover azulado claro
-            command=lambda: mostrar_pantalla_graficos(root) # Llama a la nueva función
-        ).grid(row=0, column=4, padx=4, sticky="e")
+            text="", 
+            image=icon_graficos, 
+            width=45,  
+            height=35, 
+            fg_color="#D97706",  
+            hover_color="#B45309",
+            corner_radius=8,
+            # --- CAMBIO AQUÍ ---
+            command=lambda: mostrar_pantalla_graficos(root, mostrar_pantalla_principal)
+        ).grid(row=0, column=4, padx=5, sticky="e")
     else:
-        # Fallback a botón de texto si la imagen no carga
+        # Fallback a botón de texto
         ctk.CTkButton(
             title_frame,
             text="Gráficos",
             width=100,
             height=35,
-            fg_color="#3D89D1", # Color azul
-            hover_color="#1E3D8F",
+            fg_color="#D97706",
+            hover_color="#B45309",
             corner_radius=8,
-            command=lambda: mostrar_pantalla_graficos(root)
+            # --- CAMBIO AQUÍ ---
+            command=lambda: mostrar_pantalla_graficos(root, mostrar_pantalla_principal)
         ).grid(row=0, column=4, padx=5, sticky="e")
-    # --- FIN DE NUEVO BOTÓN ---
 
     # Botón de Recargar (Columna 5 - MOVIDO)
     ctk.CTkButton(
@@ -1821,155 +1957,86 @@ def mostrar_pantalla_principal(root):
     ).grid(row=0, column=5, padx=5, sticky="e") # Cambiado de columna 4 a 5
     
     # --- FIN: CORRECCIÓN DE BOTONES DE FILTRO ---
-
     renderizar_servicios()
-    
-# FUNCION AUXILIAR PARA REDIMENSIONAR EL FONDO DEL LOGIN
 
-# 💡 INICIO: FUNCIÓN CORREGIDA PARA RESOLVER EL ERROR DE CTkImage
-def resize_login_image(event):
-    """Redimensiona la imagen de fondo del login cuando se redimensiona la ventana."""
-    global original_fondo_img, fondo_ctk_img_login, fondo_label_login
-    
-    # Si la imagen original no se ha cargado o la etiqueta no existe, salimos
-    if original_fondo_img is None or fondo_label_login is None:
-        return
 
-    # Obtener las nuevas dimensiones de la ventana
-    ancho = event.width
-    alto = event.height
-    
-    if ancho == 0 or alto == 0:
-        return
-
-    try:
-        # CLAVE: Redimensionar la ÚNICA imagen original (PIL Image) a las nuevas dimensiones
-        # Usamos PILImage.Resampling.LANCZOS o PILImage.LANCZOS
-        resized_img = original_fondo_img.resize((ancho, alto), PILImage.Resampling.LANCZOS)
-        
-        # Recrear el objeto CTkImage. 
-        # SOLUCIÓN: Usar la MISMA imagen redimensionada para light_image y dark_image.
-        new_ctk_img = ctk.CTkImage(
-            light_image=resized_img, 
-            dark_image=resized_img, 
-            size=(ancho, alto)
-        )
-        
-        # Actualizar la etiqueta
-        fondo_ctk_img_login = new_ctk_img
-        fondo_label_login.configure(image=fondo_ctk_img_login)
-        fondo_label_login.image = fondo_ctk_img_login # Evita el recolector de basura
-        
-    except Exception as e:
-        # Silenciamos el error para que no sature la consola en cada redimensionamiento fallido
-        pass 
-# 💡 FIN: FUNCIÓN CORREGIDA
 
 
 # Pantalla de Login / Configuración Inicial
 def setup_login_app(root):
     
-    global cedula_entry, notificacion, app_root, fondo_ctk_img_login, fondo_label_login, original_fondo_img
-    
     _clear_widgets(root)
     
     ctk.set_appearance_mode("light")
-    root.configure(fg_color="#FFFFFF")
     root.title("Sistema de Acceso")
 
-    app_root = root 
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    ruta_imagen_fondo = os.path.join(base_dir, "imagen", "login.png") # Nombre de archivo original
-
-    main_frame = ctk.CTkFrame(root, fg_color="transparent") # FRAME PRINCIPAL TRANSPARENTE
+    # 1. El main_frame actúa como el contenedor principal.
+    main_frame = ctk.CTkFrame(root, fg_color="#FFFFFF")
     main_frame.pack(expand=True, fill="both") 
     
+    image_path = "imagen/login.png"
     
-    # 💡 INICIO: CÓDIGO CORREGIDO DE INICIALIZACIÓN DEL FONDO 
     try:
-        # 1. CARGAR LA IMAGEN ORIGINAL (SOLO UNA VEZ)
-        original_fondo_img = PILImage.open(ruta_imagen_fondo)
+        if not os.path.exists(image_path):
+            print(f"Advertencia: No se encontró '{image_path}'. Creando placeholder.")
+            try:
+                os.makedirs("imagen", exist_ok=True)
+                placeholder_img = PILImage.new('RGB', (1024, 768), color = '#3498db')
+                placeholder_img.save(image_path)
+                print(f"Placeholder 'login.png' creado en la carpeta 'imagen/'.")
+            except Exception as e:
+                raise Exception(f"No se pudo crear placeholder: {e}")
 
-        # Usar el tamaño de la ventana (necesario para el primer renderizado)
-        root.update_idletasks() 
-        # Valores de respaldo si la ventana no tiene tamaño aún
-        ancho_inicial = root.winfo_width() if root.winfo_width() > 1 else 1000
-        alto_inicial = root.winfo_height() if root.winfo_height() > 1 else 700
-
-        # Redimensionar para el primer renderizado
-        resized_img = original_fondo_img.resize((ancho_inicial, alto_inicial), PILImage.Resampling.LANCZOS)
-
-        # 2. Crear CTkImage usando la misma imagen redimensionada para ambos
-        fondo_ctk_img_login = ctk.CTkImage(
-            light_image=resized_img, 
-            dark_image=resized_img, 
-            size=(ancho_inicial, alto_inicial)
-        )
+        # Cargar la imagen original (PIL)
+        original_bg_image = PILImage.open(image_path)
         
-        fondo_label_login = ctk.CTkLabel(main_frame, text="", image=fondo_ctk_img_login)
-        fondo_label_login.place(x=0, y=0, relwidth=1, relheight=1)
-        fondo_label_login.image = fondo_ctk_img_login # Evita el recolector de basura
+        # 2. La etiqueta de fondo se coloca en el main_frame y lo llena
+        bg_image_label = ctk.CTkLabel(main_frame, text="", image=None)
+        bg_image_label.place(relx=0, rely=0, relwidth=1, relheight=1)
 
-        # 3. Vincular la función de redimensionamiento
-        root.bind("<Configure>", resize_login_image)
+        # 3. Función anidada para redimensionar la imagen
+        def resize_bg_image(event):
+            new_width = event.width
+            new_height = event.height
+            
+            if new_width <= 1 or new_height <= 1:
+                return 
 
-    except FileNotFoundError:
-        print(f"ADVERTENCIA: No se encontró la imagen de fondo en '{ruta_imagen_fondo}'. Usando color sólido.")
-        main_frame.configure(fg_color="#34568B") # Color de respaldo para el main_frame
-        fondo_label_login = ctk.CTkLabel(main_frame, text="", fg_color="#34568B") # Etiqueta con color de fondo
-        fondo_label_login.place(x=0, y=0, relwidth=1, relheight=1)
-        root.unbind("<Configure>")
+            resized_img = original_bg_image.resize((new_width, new_height), PILImage.Resampling.LANCZOS)
+            new_bg_ctk_image = ctk.CTkImage(light_image=resized_img, size=(new_width, new_height))
+            bg_image_label.configure(image=new_bg_ctk_image)
+            bg_image_label.image = new_bg_ctk_image 
+
+        # 4. Vincular el evento de redimensionado al main_frame
+        main_frame.bind("<Configure>", resize_bg_image)
+
     except Exception as e:
-        print(f"Error al cargar/procesar la imagen de fondo del login: {e}")
-        main_frame.configure(fg_color="#34568B")
-        fondo_label_login = ctk.CTkLabel(main_frame, text="", fg_color="#34568B")
-        fondo_label_login.place(x=0, y=0, relwidth=1, relheight=1)
-        root.unbind("<Configure>")
-    # 💡 FIN: CÓDIGO CORREGIDO DE INICIALIZACIÓN DEL FONDO
+        print(f"Error al cargar la imagen de fondo: {e}")
+        pass 
 
-    # 2. Frame de Contenido (centrado) - Debe ser transparente
-    content_frame = ctk.CTkFrame(main_frame, fg_color="transparent") 
-    content_frame.place(relx=0.5, rely=0.5, anchor="center") 
-
-    # --- Elementos del Login (Arriba del Fondo) ---
-
-    # Logo (si el logo secundario aragua1.png sigue siendo blanco, se verá mal)
-    try:
-        # Se mantiene la carga del logo original
-        logo_img = ctk.CTkImage(PILImage.open("imagen/aragua1.png"), size=(250, 180))
-        ctk.CTkLabel(content_frame, image=logo_img, text="", fg_color="transparent").pack(pady=(10, 25))
-    except Exception:
-        ctk.CTkLabel(content_frame, text="[Logo no encontrado]", text_color="red", fg_color="transparent").pack(pady=20)
-
-    cedula_entry = ctk.CTkEntry(
-        content_frame, 
-        placeholder_text="Cédula de Identidad", 
-        width=300, 
-        height=45, 
-        corner_radius=10, 
-        border_width=1, 
-        # CLAVE DE INTEGRACIÓN: Fondo transparente o semi-transparente
-        fg_color="transparent", # Hace que el fondo de la imagen se vea detrás de la entrada
-        border_color="#A1A1A1", 
-        text_color="white", # Cambiamos el texto a blanco para contraste con fondos oscuros
-        font=ctk.CTkFont(size=14)
-    )
-    cedula_entry.pack(pady=(10, 15))
     
-    # Botón (dejamos un color sólido para que resalte)
-    ctk.CTkButton(
-        content_frame, 
-        text="INGRESAR", 
-        width=300, 
-        height=50, 
-        fg_color="#002D64", 
-        hover_color="#1A4E91", 
-        corner_radius=10, 
-        font=ctk.CTkFont(size=16, weight="bold"), 
-        text_color="white", 
-        command=validar_cedula
-    ).pack(pady=(5, 15))
+    # --- POSICIONAMIENTO DE WIDGETS FLOTANTES (SIN CUADRO CENTRAL) ---
+    # Todos los widgets se colocan directamente sobre el 'main_frame' usando .place(
 
-    # Etiqueta para mostrar mensajes de error/notificación
-    notificacion = ctk.CTkLabel(content_frame, text="", text_color="red", font=ctk.CTkFont(size=13, weight="bold"), fg_color="transparent")
-    notificacion.pack(pady=(5, 5))
+
+    global cedula_entry, notificacion, app_root
+    app_root = root 
+
+    # Posicionamos el campo de cédula (rely=0.55)
+    cedula_entry = ctk.CTkEntry(main_frame, placeholder_text="Cédula de Identidad", width=300, height=45, corner_radius=0, border_width=1, fg_color="white", border_color="#A1A1A1", text_color="black", font=ctk.CTkFont(size=14))
+    cedula_entry.place(relx=0.5, rely=0.55, anchor="center")
+
+    # Posicionamos el botón (rely=0.65)
+    login_button = ctk.CTkButton(main_frame, text="INGRESAR", width=300, height=50, fg_color="#002D64", hover_color="#1A4E91", corner_radius=0, font=ctk.CTkFont(size=16, weight="bold"), text_color="white", command=validar_cedula)
+    login_button.place(relx=0.5, rely=0.65, anchor="center")
+
+    # Posicionamos la notificación (rely=0.73)
+    notificacion = ctk.CTkLabel(main_frame, text="", text_color="yellow", font=ctk.CTkFont(size=14, weight="bold"), fg_color="transparent")
+    notificacion.place(relx=0.5, rely=0.73, anchor="center")
+    
+# --- Código para ejecutar la aplicación ---
+if __name__ == "__main__":
+    root = ctk.CTk()
+    root.geometry("800x600")
+    setup_login_app(root)
+    root.mainloop()

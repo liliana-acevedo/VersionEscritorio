@@ -4,9 +4,9 @@ import threading
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from collections import Counter
+import textwrap  # Para ajustar el texto de las etiquetas
 
 # Importar la instancia de supabase desde tu archivo principal
-# Asegúrate de que cliente_supabase.py esté accesible
 try:
     from cliente_supabase import supabase
 except ImportError:
@@ -15,6 +15,11 @@ except ImportError:
 
 # --- Funciones Auxiliares (Copiadas/Adaptadas de sistema_acceso.py) ---
 
+def _clear_widgets(root):
+    """Limpia todos los widgets de un frame o root."""
+    for widget in root.winfo_children():
+        widget.destroy()
+
 def traducir_estado(valor):
     """Traduce el ID de estado a un texto legible."""
     return {1: "Pendiente", 2: "Completado", 3: "Recibido"}.get(int(valor), "Desconocido") if valor else "Desconocido"
@@ -22,8 +27,6 @@ def traducir_estado(valor):
 def _obtener_mapa_nombres(tabla, id_col, nombre_cols, filtro=None):
     """
     Función genérica para crear un mapa de ID -> Nombre desde Supabase.
-    nombre_cols es una lista, ej: ["nombre", "apellido"]
-    filtro es una tupla opcional, ej: ("rol", 1)
     """
     if not supabase:
         return {}
@@ -38,8 +41,6 @@ def _obtener_mapa_nombres(tabla, id_col, nombre_cols, filtro=None):
         
         for item in resp.data or []:
             idd = item.get(id_col)
-            
-            # Construir el nombre completo
             nombre_completo = " ".join(
                 str(item.get(col) or "").strip() for col in nombre_cols
             ).strip()
@@ -61,24 +62,16 @@ def _fetch_chart_data():
         return {"error": "Supabase no inicializado."}
 
     try:
-        # 1. Obtener todos los servicios
         servicios_resp = supabase.table("Servicio").select("estado, departamento, tecnico").execute()
         servicios = servicios_resp.data or []
         
-        # 2. Obtener mapa de Departamentos (ID -> Nombre)
-        # Asumiendo que 'departamento' en Servicio puede ser un ID o un nombre
         deptos_map_id = _obtener_mapa_nombres("Departamento", "id_departamento", ["nombre_departamento"])
         
-        # 3. Obtener mapa de Técnicos (Cédula -> Nombre)
-        # Asumiendo que Rol 1 = Técnico
         tech_map = _obtener_mapa_nombres("Usuario", "cedula", ["nombre", "apellido"], filtro=("rol", 1))
 
         # --- Procesar Datos ---
-        
-        # Gráfico 1: Conteo por Estado
         conteo_estados = Counter([traducir_estado(s.get('estado')) for s in servicios])
         
-        # Gráfico 2: Conteo por Departamento
         conteo_deptos = Counter()
         for s in servicios:
             depto_val = s.get('departamento')
@@ -88,15 +81,13 @@ def _fetch_chart_data():
                 nombre_depto = str(depto_val).strip() if depto_val else "Sin Depto."
             conteo_deptos[nombre_depto] += 1
             
-        # Gráfico 3: Conteo por Técnico
         conteo_tecnicos = Counter()
         for s in servicios:
-            tecnico_id = str(s.get('tecnico') or "Sin Asignar")
-            nombre_tecnico = tech_map.get(tecnico_id, "Sin Asignar")
+            tecnico_id = str(s.get('tecnico') or "Sin asignar")
+            nombre_tecnico = tech_map.get(tecnico_id, "Sin asignar")
             if nombre_tecnico != "Sin Asignar":
                 conteo_tecnicos[nombre_tecnico] += 1
                 
-        # Filtrar técnicos con 0 servicios (aunque ya se hizo con el bucle)
         conteo_tecnicos_filtrado = {k: v for k, v in conteo_tecnicos.items() if v > 0}
 
         return {
@@ -120,8 +111,6 @@ def _crear_grafico_estado(tab_frame, data):
     labels = data.keys()
     sizes = data.values()
     
-    # Definir colores
-    colors = ['#FFC107', '#4CAF50', '#2196F3'] # Amarillo (Pendiente), Verde (Completado), Azul (Recibido)
     color_map = {
         'Pendiente': '#FFC107',
         'Completado': '#4CAF50',
@@ -130,22 +119,24 @@ def _crear_grafico_estado(tab_frame, data):
     }
     pie_colors = [color_map.get(label, '#9E9E9E') for label in labels]
 
-    fig, ax = plt.subplots(figsize=(7, 5))
+    # --- CAMBIO: Aumentado el tamaño del gráfico ---
+    fig, ax = plt.subplots(figsize=(8, 6)) # Tamaño base más grande
+    
     ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=pie_colors,
            wedgeprops={'edgecolor': 'white'}, textprops={'color': 'black', 'weight': 'bold'})
-    ax.axis('equal')  # Asegura que el pastel sea circular
+    ax.axis('equal')  
     
-    fig.patch.set_facecolor('#F7F9FB') # Fondo que coincide con la app
-    ax.set_title("Distribución de Servicios por Estado", color="#0C4A6E", fontsize=16, weight="bold")
+    fig.patch.set_facecolor('#F7F9FB') 
+    ax.set_title("Distribución de servicios por estado", color="#0C4A6E", fontsize=16, weight="bold")
     
-    # Añadir leyenda
     ax.legend(labels, loc="best", bbox_to_anchor=(0.9, 0.9))
     
     plt.tight_layout()
 
-    # Incrustar en Tkinter
     canvas = FigureCanvasTkAgg(fig, master=tab_frame)
     canvas.draw()
+    
+    # --- CAMBIO: Volvemos a expandir el gráfico ---
     canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=10)
 
 def _crear_grafico_barras(tab_frame, data, title):
@@ -154,22 +145,28 @@ def _crear_grafico_barras(tab_frame, data, title):
         ctk.CTkLabel(tab_frame, text=f"No hay datos para '{title}'.").pack(pady=20)
         return
 
-    # Ordenar datos para mejor visualización (de mayor a menor)
     sorted_data = dict(sorted(data.items(), key=lambda item: item[1], reverse=True))
     
     labels = list(sorted_data.keys())
     values = list(sorted_data.values())
 
-    fig, ax = plt.subplots(figsize=(8, 6))
+    # --- INICIO DE CAMBIOS ---
     
-    # Gráfico de barras horizontal
-    bars = ax.barh(labels, values, color='#3D89D1', edgecolor='black')
+    # 1. Envolver (wrap) las etiquetas largas (esto sigue bien)
+    wrapped_labels = [textwrap.fill(label, width=35) for label in labels] 
+
+    # 2. Altura dinámica (esto sigue bien)
+    n_items = len(labels)
+    fig_height = max(7, n_items * 0.8) 
     
-    ax.set_xlabel('Cantidad de Servicios', fontsize=12, color="#333")
+    fig, ax = plt.subplots(figsize=(8, fig_height)) # Usar altura dinámica
+    
+    bars = ax.barh(wrapped_labels, values, color='#3D89D1', edgecolor='black')
+    
+    ax.set_xlabel('Cantidad de servicios', fontsize=12, color="#333")
     ax.set_title(title, color="#0C4A6E", fontsize=16, weight="bold")
-    ax.invert_yaxis()  # Muestra el más alto arriba
+    ax.invert_yaxis()  
     
-    # Añadir etiquetas de valor en las barras
     for bar in bars:
         ax.text(bar.get_width() + 0.1, bar.get_y() + bar.get_height()/2, 
                 f' {bar.get_width()}', 
@@ -178,90 +175,101 @@ def _crear_grafico_barras(tab_frame, data, title):
     fig.patch.set_facecolor('#F7F9FB')
     ax.set_facecolor('#FFFFFF')
     
-    # Ajustar márgenes
-    plt.subplots_adjust(left=0.3) # Dar más espacio a las etiquetas del eje Y
-    plt.tight_layout(pad=2.0)
+    # --- ¡ESTE ES EL ARREGLO! ---
+    # ELIMINAMOS la línea 'plt.subplots_adjust(left=0.45)'
+    # Ahora 'tight_layout' (abajo) ajustará el gráfico automáticamente
+    # al tamaño de las etiquetas sin crear un espacio gigante.
+    
+    plt.tight_layout(pad=3.0)
 
-    # Incrustar en Tkinter
+    # 3. Volvemos a expandir el gráfico (esto sigue bien)
     canvas = FigureCanvasTkAgg(fig, master=tab_frame)
     canvas.draw()
     canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=10)
+    
 
 
-# --- Función Principal de la Ventana de Gráficos ---
+# --- Función Principal (Modificada) ---
 
-def _fetch_and_render(toplevel, tabview, loading_label):
-    """Función objetivo para el hilo: busca datos y luego renderiza."""
+def _fetch_and_render(root_window, content_frame, tabview, loading_label):
+    """
+    Función objetivo para el hilo: busca datos y luego renderiza.
+    """
     chart_data = _fetch_chart_data()
     
     def _render():
-        loading_label.destroy() # Ocultar "Cargando..."
+        loading_label.destroy() 
         
         if "error" in chart_data:
-            ctk.CTkLabel(toplevel, text=f"Error al cargar datos: {chart_data['error']}", text_color="red").pack(pady=20)
+            ctk.CTkLabel(content_frame, text=f"Error al cargar datos: {chart_data['error']}", text_color="red").pack(pady=20)
             return
         
-        # Mostrar el TabView
         tabview.pack(expand=True, fill="both", padx=10, pady=10)
 
-        # Renderizar cada gráfico en su pestaña
         try:
             _crear_grafico_estado(tabview.tab("Por Estado"), chart_data.get('status'))
         except Exception as e:
-            ctk.CTkLabel(tabview.tab("Por Estado"), text=f"Error al renderizar gráfico: {e}", text_color="red").pack(pady=10)
+            ctk.CTkLabel(tabview.tab("Por estado"), text=f"Error al renderizar gráfico: {e}", text_color="red").pack(pady=10)
             
         try:
-            _crear_grafico_barras(tabview.tab("Por Departamento"), chart_data.get('dept'), 'Demanda por Departamento')
+            _crear_grafico_barras(tabview.tab("Por departamento"), chart_data.get('dept'), 'Demanda por departamento')
         except Exception as e:
-            ctk.CTkLabel(tabview.tab("Por Departamento"), text=f"Error al renderizar gráfico: {e}", text_color="red").pack(pady=10)
+            ctk.CTkLabel(tabview.tab("Por departamento"), text=f"Error al renderizar gráfico: {e}", text_color="red").pack(pady=10)
 
         try:
-            _crear_grafico_barras(tabview.tab("Por Técnico"), chart_data.get('tech'), 'Cantidad de Servicios por Técnico')
+            _crear_grafico_barras(tabview.tab("Por técnico"), chart_data.get('tech'), 'Cantidad de servicios por técnico')
         except Exception as e:
             ctk.CTkLabel(tabview.tab("Por Técnico"), text=f"Error al renderizar gráfico: {e}", text_color="red").pack(pady=10)
 
-    # Programar el renderizado en el hilo principal de Tkinter
-    toplevel.after(0, _render)
+    root_window.after(0, _render)
 
 
-def mostrar_pantalla_graficos(root):
+def mostrar_pantalla_graficos(root, funcion_volver):
     """
-    Crea y muestra la ventana emergente (Toplevel) para los gráficos.
+    Muestra la pantalla de gráficos DENTRO del root.
     """
     
-    ventana_graficos = ctk.CTkToplevel(root)
-    ventana_graficos.title("Dashboard de Gráficos")
-    ventana_graficos.geometry("900x700")
-    ventana_graficos.configure(fg_color="#F7F9FB")
-    ventana_graficos.grab_set() # Bloquear interacción con la ventana principal
-    ventana_graficos.focus_force()
+    _clear_widgets(root) 
+    root.title("Dashboard de Gráficos")
     
-    # Título principal de la ventana
-    ctk.CTkLabel(
-        ventana_graficos, 
-        text="Análisis de servicios", 
-        font=ctk.CTkFont(size=24, weight="bold"), 
-        text_color="#0C4A6E"
-    ).pack(pady=(15, 5))
+    main_frame = ctk.CTkFrame(root, fg_color="#F7F9FB")
+    main_frame.pack(expand=True, fill="both")
+    main_frame.grid_rowconfigure(1, weight=1) 
+    main_frame.grid_columnconfigure(0, weight=1)
     
-    # Crear el TabView (contenedor de pestañas)
-    tabview = ctk.CTkTabview(ventana_graficos, fg_color="#FFFFFF")
+    header_frame = ctk.CTkFrame(main_frame, fg_color="#0C4A6E", corner_radius=0, height=70)
+    header_frame.grid(row=0, column=0, sticky="ew")
+    header_frame.grid_columnconfigure(1, weight=1) 
+    header_frame.grid_columnconfigure(2, weight=0) 
+
+    ctk.CTkLabel(header_frame, text="Análisis de servicios",
+                 font=ctk.CTkFont(size=22, weight="bold"),
+                 text_color="white").grid(row=0, column=1, padx=(30, 20), pady=15, sticky="w")
+
+    ctk.CTkButton(header_frame, text="VOLVER", fg_color="#3D89D1",
+                  hover_color="#1E3D8F",
+                  font=ctk.CTkFont(size=13, weight="bold"),
+                  corner_radius=8, width=120, height=40,
+                  command=lambda: funcion_volver(root)
+                  ).grid(row=0, column=2, padx=(10, 20), pady=12, sticky="e")
+    
+    content_frame = ctk.CTkFrame(main_frame, fg_color="#F7F9FB")
+    content_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+
+    tabview = ctk.CTkTabview(content_frame, fg_color="#FFFFFF")
     tabview.add("Por Estado")
     tabview.add("Por Departamento")
     tabview.add("Por Técnico")
-    # Ocultar el tabview hasta que los datos estén listos
     
-    # Etiqueta de "Cargando..."
     loading_label = ctk.CTkLabel(
-        ventana_graficos, 
+        content_frame, 
         text="Cargando datos y generando gráficos...",
         font=ctk.CTkFont(size=16)
     )
     loading_label.pack(pady=50, expand=True)
 
-    # Iniciar la carga de datos en un hilo separado
     threading.Thread(
         target=_fetch_and_render, 
-        args=(ventana_graficos, tabview, loading_label), 
+        args=(root, content_frame, tabview, loading_label), 
         daemon=True
     ).start()
