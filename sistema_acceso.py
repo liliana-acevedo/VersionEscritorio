@@ -37,6 +37,10 @@ except ImportError as e:
 cedula_entry = None
 notificacion = None
 app_root = None
+# Referencia global para la imagen de fondo del login para redimensionar
+fondo_ctk_img_login = None 
+fondo_label_login = None
+original_fondo_img = None # AÑADIDO: Almacena la imagen PIL original sin redimensionar
 
 # Referencias para la Pantalla 'Agregar Usuario' 
 registro_entries = {}
@@ -1006,24 +1010,6 @@ def mostrar_pantalla_principal(root):
     except Exception:
         reload_icon = None
 
-    # --- INICIO: CÓDIGO CORREGIDO PARA IMAGEN DE BOTÓN EXPORTAR ---
-    try:
-        # Usar os.path.join para construir la ruta de forma segura
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        
-        # --- ¡CORRECCIÓN IMPORTANTE! El archivo se llama 'bnexcel.png' ---
-        ruta_imagen_boton_exportar = os.path.join(base_dir, "imagen", "btn_exportar.png") 
-        
-        export_button_image = ctk.CTkImage(
-            PILImage.open(ruta_imagen_boton_exportar), 
-            size=(113, 37) # Ajustado a un tamaño más similar a un botón
-        )
-    except FileNotFoundError:
-        print(f"ADVERTENCIA: No se encontró la imagen del botón de exportar en '{ruta_imagen_boton_exportar}'. Se usará un botón de texto.")
-        export_button_image = None
-    except Exception as e:
-        print(f"Error al cargar la imagen del botón de exportar: {e}. Se usará un botón de texto.")
-        export_button_image = None
     # --- FIN: CÓDIGO CORREGIDO PARA IMAGEN DE BOTÓN EXPORTAR ---
 
     # --- INICIO: NUEVA IMAGEN PARA BOTÓN GRÁFICOS ---
@@ -1046,11 +1032,14 @@ def mostrar_pantalla_principal(root):
 
     # --- FIN: CARGA DE IMÁGENES ---
 
+# --- FIN: CARGA DE IMÁGENES ---
+    
     scrollable = ctk.CTkScrollableFrame(table_card, corner_radius=10)
     scrollable.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
 
     # Funciones de Lógica de la Lista
     def obtener_servicios_filtrados():
+        
         query = supabase.table("Servicio").select("*").order("id_servicio", desc=True)
         estado_map = {"Pendiente": 1, "Completado": 2, "Recibido": 3}
         estado_val = filtro_estado.get()
@@ -1834,9 +1823,53 @@ def mostrar_pantalla_principal(root):
     # --- FIN: CORRECCIÓN DE BOTONES DE FILTRO ---
 
     renderizar_servicios()
+    
+# FUNCION AUXILIAR PARA REDIMENSIONAR EL FONDO DEL LOGIN
+
+# 💡 INICIO: FUNCIÓN CORREGIDA PARA RESOLVER EL ERROR DE CTkImage
+def resize_login_image(event):
+    """Redimensiona la imagen de fondo del login cuando se redimensiona la ventana."""
+    global original_fondo_img, fondo_ctk_img_login, fondo_label_login
+    
+    # Si la imagen original no se ha cargado o la etiqueta no existe, salimos
+    if original_fondo_img is None or fondo_label_login is None:
+        return
+
+    # Obtener las nuevas dimensiones de la ventana
+    ancho = event.width
+    alto = event.height
+    
+    if ancho == 0 or alto == 0:
+        return
+
+    try:
+        # CLAVE: Redimensionar la ÚNICA imagen original (PIL Image) a las nuevas dimensiones
+        # Usamos PILImage.Resampling.LANCZOS o PILImage.LANCZOS
+        resized_img = original_fondo_img.resize((ancho, alto), PILImage.Resampling.LANCZOS)
+        
+        # Recrear el objeto CTkImage. 
+        # SOLUCIÓN: Usar la MISMA imagen redimensionada para light_image y dark_image.
+        new_ctk_img = ctk.CTkImage(
+            light_image=resized_img, 
+            dark_image=resized_img, 
+            size=(ancho, alto)
+        )
+        
+        # Actualizar la etiqueta
+        fondo_ctk_img_login = new_ctk_img
+        fondo_label_login.configure(image=fondo_ctk_img_login)
+        fondo_label_login.image = fondo_ctk_img_login # Evita el recolector de basura
+        
+    except Exception as e:
+        # Silenciamos el error para que no sature la consola en cada redimensionamiento fallido
+        pass 
+# 💡 FIN: FUNCIÓN CORREGIDA
+
 
 # Pantalla de Login / Configuración Inicial
 def setup_login_app(root):
+    
+    global cedula_entry, notificacion, app_root, fondo_ctk_img_login, fondo_label_login, original_fondo_img
     
     _clear_widgets(root)
     
@@ -1844,27 +1877,99 @@ def setup_login_app(root):
     root.configure(fg_color="#FFFFFF")
     root.title("Sistema de Acceso")
 
-    main_frame = ctk.CTkFrame(root, fg_color="#FFFFFF")
-    
+    app_root = root 
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    ruta_imagen_fondo = os.path.join(base_dir, "imagen", "login.png") # Nombre de archivo original
+
+    main_frame = ctk.CTkFrame(root, fg_color="transparent") # FRAME PRINCIPAL TRANSPARENTE
     main_frame.pack(expand=True, fill="both") 
     
-    content_frame = ctk.CTkFrame(main_frame, fg_color="#FFFFFF")
+    
+    # 💡 INICIO: CÓDIGO CORREGIDO DE INICIALIZACIÓN DEL FONDO 
+    try:
+        # 1. CARGAR LA IMAGEN ORIGINAL (SOLO UNA VEZ)
+        original_fondo_img = PILImage.open(ruta_imagen_fondo)
+
+        # Usar el tamaño de la ventana (necesario para el primer renderizado)
+        root.update_idletasks() 
+        # Valores de respaldo si la ventana no tiene tamaño aún
+        ancho_inicial = root.winfo_width() if root.winfo_width() > 1 else 1000
+        alto_inicial = root.winfo_height() if root.winfo_height() > 1 else 700
+
+        # Redimensionar para el primer renderizado
+        resized_img = original_fondo_img.resize((ancho_inicial, alto_inicial), PILImage.Resampling.LANCZOS)
+
+        # 2. Crear CTkImage usando la misma imagen redimensionada para ambos
+        fondo_ctk_img_login = ctk.CTkImage(
+            light_image=resized_img, 
+            dark_image=resized_img, 
+            size=(ancho_inicial, alto_inicial)
+        )
+        
+        fondo_label_login = ctk.CTkLabel(main_frame, text="", image=fondo_ctk_img_login)
+        fondo_label_login.place(x=0, y=0, relwidth=1, relheight=1)
+        fondo_label_login.image = fondo_ctk_img_login # Evita el recolector de basura
+
+        # 3. Vincular la función de redimensionamiento
+        root.bind("<Configure>", resize_login_image)
+
+    except FileNotFoundError:
+        print(f"ADVERTENCIA: No se encontró la imagen de fondo en '{ruta_imagen_fondo}'. Usando color sólido.")
+        main_frame.configure(fg_color="#34568B") # Color de respaldo para el main_frame
+        fondo_label_login = ctk.CTkLabel(main_frame, text="", fg_color="#34568B") # Etiqueta con color de fondo
+        fondo_label_login.place(x=0, y=0, relwidth=1, relheight=1)
+        root.unbind("<Configure>")
+    except Exception as e:
+        print(f"Error al cargar/procesar la imagen de fondo del login: {e}")
+        main_frame.configure(fg_color="#34568B")
+        fondo_label_login = ctk.CTkLabel(main_frame, text="", fg_color="#34568B")
+        fondo_label_login.place(x=0, y=0, relwidth=1, relheight=1)
+        root.unbind("<Configure>")
+    # 💡 FIN: CÓDIGO CORREGIDO DE INICIALIZACIÓN DEL FONDO
+
+    # 2. Frame de Contenido (centrado) - Debe ser transparente
+    content_frame = ctk.CTkFrame(main_frame, fg_color="transparent") 
     content_frame.place(relx=0.5, rely=0.5, anchor="center") 
 
+    # --- Elementos del Login (Arriba del Fondo) ---
+
+    # Logo (si el logo secundario aragua1.png sigue siendo blanco, se verá mal)
     try:
+        # Se mantiene la carga del logo original
         logo_img = ctk.CTkImage(PILImage.open("imagen/aragua1.png"), size=(250, 180))
-        ctk.CTkLabel(content_frame, image=logo_img, text="").pack(pady=(10, 25))
+        ctk.CTkLabel(content_frame, image=logo_img, text="", fg_color="transparent").pack(pady=(10, 25))
     except Exception:
-        ctk.CTkLabel(content_frame, text="[Logo no encontrado]", text_color="red").pack(pady=20)
+        ctk.CTkLabel(content_frame, text="[Logo no encontrado]", text_color="red", fg_color="transparent").pack(pady=20)
 
-    global cedula_entry, notificacion, app_root
-    app_root = root 
-
-    cedula_entry = ctk.CTkEntry(content_frame, placeholder_text="Cédula de Identidad", width=300, height=45, corner_radius=10, border_width=1, fg_color="white", border_color="#A1A1A1", text_color="black", font=ctk.CTkFont(size=14))
+    cedula_entry = ctk.CTkEntry(
+        content_frame, 
+        placeholder_text="Cédula de Identidad", 
+        width=300, 
+        height=45, 
+        corner_radius=10, 
+        border_width=1, 
+        # CLAVE DE INTEGRACIÓN: Fondo transparente o semi-transparente
+        fg_color="transparent", # Hace que el fondo de la imagen se vea detrás de la entrada
+        border_color="#A1A1A1", 
+        text_color="white", # Cambiamos el texto a blanco para contraste con fondos oscuros
+        font=ctk.CTkFont(size=14)
+    )
     cedula_entry.pack(pady=(10, 15))
-
-    ctk.CTkButton(content_frame, text="INGRESAR", width=300, height=50, fg_color="#002D64", hover_color="#1A4E91", corner_radius=10, font=ctk.CTkFont(size=16, weight="bold"), text_color="white", command=validar_cedula).pack(pady=(5, 15))
+    
+    # Botón (dejamos un color sólido para que resalte)
+    ctk.CTkButton(
+        content_frame, 
+        text="INGRESAR", 
+        width=300, 
+        height=50, 
+        fg_color="#002D64", 
+        hover_color="#1A4E91", 
+        corner_radius=10, 
+        font=ctk.CTkFont(size=16, weight="bold"), 
+        text_color="white", 
+        command=validar_cedula
+    ).pack(pady=(5, 15))
 
     # Etiqueta para mostrar mensajes de error/notificación
-    notificacion = ctk.CTkLabel(content_frame, text="", text_color="red", font=ctk.CTkFont(size=13, weight="bold"))
+    notificacion = ctk.CTkLabel(content_frame, text="", text_color="red", font=ctk.CTkFont(size=13, weight="bold"), fg_color="transparent")
     notificacion.pack(pady=(5, 5))
