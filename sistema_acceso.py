@@ -2039,4 +2039,8 @@ if __name__ == "__main__":
     root = ctk.CTk()
     root.geometry("800x600")
     setup_login_app(root)
+<<<<<<< HEAD
     root.mainloop()
+=======
+    root.mainloop()
+>>>>>>> d322258f7ac46cb1845662556dd4f3ce75d07dc0
