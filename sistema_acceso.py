@@ -148,7 +148,7 @@ def obtener_usuarios_completos():
         return pd.DataFrame(columns=['nombre', 'apellido', 'cedula', 'departamento', 'rol'])
 # ------------------------------------------------
 
-# --- FUNCIONES CORREGIDAS PARA ELIMINAR Y EDITAR USUARIOS ---
+# --- FUNCIONES PARA ELIMINAR Y EDITAR USUARIOS ---
 def eliminar_usuario(cedula, nombre_completo, row_frame=None):
     """Elimina un usuario de la base de datos sin recargar toda la página"""
     def _eliminar():
@@ -191,7 +191,6 @@ def eliminar_usuario(cedula, nombre_completo, row_frame=None):
     if confirmar:
         threading.Thread(target=_eliminar, daemon=True).start()
 
-# --- FUNCIÓN MEJORADA Y SEGURA PARA EDITAR USUARIO ---
 def editar_usuario(cedula, usuario_data):
     """Abre una ventana para editar los datos del usuario"""
     # Crear ventana de edición compacta
@@ -424,6 +423,7 @@ def editar_usuario(cedula, usuario_data):
     y = (ventana_edicion.winfo_screenheight() // 2) - (ventana_edicion.winfo_height() // 2)
     ventana_edicion.geometry(f"+{x}+{y}")
 
+# Manejo Seguro de Notificaciones
 def _set_registro_notificacion(text, color):
     global registro_notificacion, app_root
     if not registro_notificacion or not app_root:
@@ -835,7 +835,7 @@ def mostrar_pantalla_departamentos(root):
 
 
 
-# REGISTRO DE USUARIO CORREGIDO
+# REGISTRO DE USUARIO
 def registrar_usuario(root, roles_map, departamentos_map):
   
     global registro_entries
@@ -859,20 +859,13 @@ def registrar_usuario(root, roles_map, departamentos_map):
         _set_registro_notificacion("Cédula inválida o muy corta.", "orange")
         return
 
-    # CONVERTIR CÉDULA A ENTERO PARA VERIFICACIÓN
-    try:
-        cedula_int = int(cedula_val)
-    except ValueError:
-        _set_registro_notificacion("Cédula debe contener solo números.", "orange")
-        return
-
     if rol_nombre not in roles_map or depto_nombre not in departamentos_map:
         _set_registro_notificacion("Rol/Departamento no válido. Intente recargar.", "red")
         return
 
-    # Verificar si la cédula ya existe (usando entero)
+    # Verificar si la cédula ya existe 
     try:
-        dup_resp = supabase.table("Usuario").select("cedula").eq("cedula", cedula_int).execute()
+        dup_resp = supabase.table("Usuario").select("cedula").eq("cedula", cedula_val).execute()
         if dup_resp.data:
             _set_registro_notificacion("Error: La cédula ya está registrada.", "red")
             return
@@ -881,9 +874,9 @@ def registrar_usuario(root, roles_map, departamentos_map):
         _set_registro_notificacion("Error en verificación de cédula.", "red")
         return
 
-    # Preparar datos y ejecutar la inserción (usando entero para cédula)
+    # Preparar datos y ejecutar la inserción
     datos_usuario = {
-        'cedula': cedula_int,  # GUARDAR COMO ENTERO
+        'cedula': cedula_val,
         'nombre': nombre_val,
         'apellido': apellido_val,
         'departamento': departamentos_map[depto_nombre],
@@ -981,6 +974,9 @@ def map_usuarios_por_cedula():
 
 def traducir_estado(valor):
     return {1: "Pendiente", 2: "Completado", 3: "Recibido"}.get(int(valor), "Desconocido") if valor else "Desconocido"
+
+
+
 
 
 def obtener_servicios_filtrados_base(query_builder):
@@ -1342,33 +1338,6 @@ def mostrar_pantalla_registro(root):
     # SELECTOR DE ROL CON BARRA DE DESPLAZAMIENTO MEJORADO (EL ROL NO TIENE MUCHOS ITEMS, SE MANTIENE EL COMBOBOX)
     # ... (Código anterior de Cédula, Nombre, Apellido)
 
-    # SELECTOR DE DEPARTAMENTO CON BARRA DE DESPLAZAMIENTO MEJORADO
-    ctk.CTkLabel(form_frame, text="Departamento:", text_color="#1E1E1E").pack(pady=(10, 0))
-    departamento_vals = departamento_names if departamento_names else ["-- Sin departamentos --"]
-
-    # Crear el ComboBox con propiedades mejoradas para el dropdown
-    depto_combo = ctk.CTkComboBox(
-        form_frame, 
-        values=departamento_vals, 
-        width=320,
-        height=38,
-        dropdown_font=ctk.CTkFont(size=12),  # Tamaño más pequeño para más elementos
-        dropdown_fg_color="white",
-        dropdown_text_color="black",
-        dropdown_hover_color="#E5E7EB",
-        state="readonly"
-    )
-
-    # Configurar el valor por defecto
-    if departamento_names:
-        depto_combo.set(departamento_names[0])
-    else:
-        depto_combo.set("-- Sin departamentos --")
-
-    depto_combo.pack(pady=(4, 10))
-    registro_entries['departamento'] = depto_combo
-
-    # SELECTOR DE ROL CON BARRA DE DESPLAZAMIENTO MEJORADO
 # ----------------------------------------------------
 # --- INICIO: SELECTOR DE ROL (MOVIDO ARRIBA) ---
 # ----------------------------------------------------
@@ -1377,7 +1346,7 @@ def mostrar_pantalla_registro(root):
     
     rol_vals = rol_names if rol_names else ["-- Sin roles --"]
 
-    # Crear el ComboBox para roles con las mismas propiedades
+    # Crear el ComboBox para roles
     rol_combo = ctk.CTkComboBox(
         form_frame, 
         values=rol_vals, 
@@ -1454,12 +1423,16 @@ def mostrar_pantalla_registro(root):
     ctk.CTkButton(form_frame, text="REGISTRAR", fg_color="#16A34A", hover_color="#15803D",
                   font=ctk.CTkFont(size=14, weight="bold"), width=320, height=42,
                   command=_on_registrar).pack(pady=(10, 6))
-<<<<<<< HEAD
-    # PANTALLA PRINCIPAL (Lista de Servicios) 
+# ----------------------------------------------------
+# --- FIN: BOTÓN REGISTRAR ---
+# ----------------------------------------------------
 
-=======
 
->
+
+
+
+
+# PANTALLA PRINCIPAL (Lista de Servicios) 
 def mostrar_pantalla_principal(root):
     _clear_widgets(root)
 
@@ -1718,6 +1691,12 @@ def mostrar_pantalla_principal(root):
 
         return obtener_servicios_filtrados_base(query)
 
+
+
+
+
+
+
     def renderizar_servicios():
         """
         Limpia el scrollable y renderiza las nuevas tarjetas de servicio.
@@ -1756,6 +1735,7 @@ def mostrar_pantalla_principal(root):
                 COLOR_HEADER_TEXT = "#FFFFFF"
                 COLOR_TITLE_TEXT = "#2E2E2E"
                 COLOR_DETAIL_TEXT = "#4A4A4A"
+                CARD_CORNER_RADIUS = 8
                 COLOR_SEPARATOR = "#DCDCDC" # Color para las líneas
 
                 FONT_HEADER = ctk.CTkFont(size=18, weight="bold")
@@ -1787,7 +1767,7 @@ def mostrar_pantalla_principal(root):
                     card_main = ctk.CTkFrame(
                         scrollable,
                         fg_color=COLOR_BODY_BG, 
-                        corner_radius=8,
+                        corner_radius=CARD_CORNER_RADIUS,
                         border_color="#DCDCDC",
                         border_width=1
                     )
@@ -1956,6 +1936,10 @@ def mostrar_pantalla_principal(root):
 
         threading.Thread(target=tarea, daemon=True).start()
         
+        
+        
+        
+    
     def exportar_a_excel():
         """
         Prepara y ejecuta la exportación a Excel en un hilo separado
