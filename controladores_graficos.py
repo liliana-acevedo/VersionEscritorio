@@ -4,7 +4,7 @@ import threading
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from collections import Counter
-import textwrap  # Para ajustar el texto de las etiquetas
+import textwrap 
 
 # Importar la instancia de supabase desde tu archivo principal
 try:
@@ -13,7 +13,7 @@ except ImportError:
     print("Error: No se pudo importar 'supabase' desde 'cliente_supabase'.")
     supabase = None
 
-# --- Funciones Auxiliares (Copiadas/Adaptadas de sistema_acceso.py) ---
+# --- Funciones Auxiliares ---
 
 def _clear_widgets(root):
     """Limpia todos los widgets de un frame o root."""
@@ -52,7 +52,7 @@ def _obtener_mapa_nombres(tabla, id_col, nombre_cols, filtro=None):
         print(f"Error al obtener mapa para {tabla}: {e}")
     return mapa
 
-# --- Lógica de Carga de Datos para Gráficos ---
+# --- Lógica de Carga de Datos para Gráficos (CORREGIDA LA ROBUSTEZ) ---
 
 def _fetch_chart_data():
     """
@@ -67,25 +67,35 @@ def _fetch_chart_data():
         
         deptos_map_id = _obtener_mapa_nombres("Departamento", "id_departamento", ["nombre_departamento"])
         
+        # Obtener el mapa de técnicos (usuarios con rol=1)
         tech_map = _obtener_mapa_nombres("Usuario", "cedula", ["nombre", "apellido"], filtro=("rol", 1))
 
         # --- Procesar Datos ---
         conteo_estados = Counter([traducir_estado(s.get('estado')) for s in servicios])
         
+        # Conteo de Departamentos
         conteo_deptos = Counter()
         for s in servicios:
             depto_val = s.get('departamento')
             if str(depto_val).isdigit():
+                # Si es un ID, mapear a nombre
                 nombre_depto = deptos_map_id.get(str(depto_val), "ID Desconocido")
+            elif depto_val:
+                # Si es un string (e.g., de una versión anterior o un error), usarlo
+                nombre_depto = str(depto_val).strip()
             else:
-                nombre_depto = str(depto_val).strip() if depto_val else "Sin Depto."
+                # Si es None
+                nombre_depto = "Sin Depto."
             conteo_deptos[nombre_depto] += 1
             
+        # Conteo de Técnicos
         conteo_tecnicos = Counter()
         for s in servicios:
             tecnico_id = str(s.get('tecnico') or "Sin asignar")
             nombre_tecnico = tech_map.get(tecnico_id, "Sin asignar")
-            if nombre_tecnico != "Sin Asignar":
+            
+            # Usamos .lower() para evitar que la capitalización inconsistente cuente los servicios no asignados.
+            if nombre_tecnico.lower() != "sin asignar": 
                 conteo_tecnicos[nombre_tecnico] += 1
                 
         conteo_tecnicos_filtrado = {k: v for k, v in conteo_tecnicos.items() if v > 0}
@@ -119,8 +129,7 @@ def _crear_grafico_estado(tab_frame, data):
     }
     pie_colors = [color_map.get(label, '#9E9E9E') for label in labels]
 
-    # --- CAMBIO: Aumentado el tamaño del gráfico ---
-    fig, ax = plt.subplots(figsize=(8, 6)) # Tamaño base más grande
+    fig, ax = plt.subplots(figsize=(8, 6)) 
     
     ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=pie_colors,
            wedgeprops={'edgecolor': 'white'}, textprops={'color': 'black', 'weight': 'bold'})
@@ -136,7 +145,6 @@ def _crear_grafico_estado(tab_frame, data):
     canvas = FigureCanvasTkAgg(fig, master=tab_frame)
     canvas.draw()
     
-    # --- CAMBIO: Volvemos a expandir el gráfico ---
     canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=10)
 
 def _crear_grafico_barras(tab_frame, data, title):
@@ -150,16 +158,12 @@ def _crear_grafico_barras(tab_frame, data, title):
     labels = list(sorted_data.keys())
     values = list(sorted_data.values())
 
-    # --- INICIO DE CAMBIOS ---
-    
-    # 1. Envolver (wrap) las etiquetas largas (esto sigue bien)
     wrapped_labels = [textwrap.fill(label, width=35) for label in labels] 
 
-    # 2. Altura dinámica (esto sigue bien)
     n_items = len(labels)
     fig_height = max(7, n_items * 0.8) 
     
-    fig, ax = plt.subplots(figsize=(8, fig_height)) # Usar altura dinámica
+    fig, ax = plt.subplots(figsize=(8, fig_height)) 
     
     bars = ax.barh(wrapped_labels, values, color='#3D89D1', edgecolor='black')
     
@@ -175,21 +179,13 @@ def _crear_grafico_barras(tab_frame, data, title):
     fig.patch.set_facecolor('#F7F9FB')
     ax.set_facecolor('#FFFFFF')
     
-    # --- ¡ESTE ES EL ARREGLO! ---
-    # ELIMINAMOS la línea 'plt.subplots_adjust(left=0.45)'
-    # Ahora 'tight_layout' (abajo) ajustará el gráfico automáticamente
-    # al tamaño de las etiquetas sin crear un espacio gigante.
-    
     plt.tight_layout(pad=3.0)
 
-    # 3. Volvemos a expandir el gráfico (esto sigue bien)
     canvas = FigureCanvasTkAgg(fig, master=tab_frame)
     canvas.draw()
     canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=10)
     
-
-
-# --- Función Principal (Modificada) ---
+# --- Función Principal (CORREGIDA LA REFERENCIA DE LAS PESTAÑAS) ---
 
 def _fetch_and_render(root_window, content_frame, tabview, loading_label):
     """
@@ -209,15 +205,17 @@ def _fetch_and_render(root_window, content_frame, tabview, loading_label):
         try:
             _crear_grafico_estado(tabview.tab("Por Estado"), chart_data.get('status'))
         except Exception as e:
-            ctk.CTkLabel(tabview.tab("Por estado"), text=f"Error al renderizar gráfico: {e}", text_color="red").pack(pady=10)
+            ctk.CTkLabel(tabview.tab("Por Estado"), text=f"Error al renderizar gráfico: {e}", text_color="red").pack(pady=10)
             
+        # CORRECCIÓN: Usar "Por Departamento" (con 'D' mayúscula)
         try:
-            _crear_grafico_barras(tabview.tab("Por departamento"), chart_data.get('dept'), 'Demanda por departamento')
+            _crear_grafico_barras(tabview.tab("Por Departamento"), chart_data.get('dept'), 'Demanda por departamento')
         except Exception as e:
-            ctk.CTkLabel(tabview.tab("Por departamento"), text=f"Error al renderizar gráfico: {e}", text_color="red").pack(pady=10)
+            ctk.CTkLabel(tabview.tab("Por Departamento"), text=f"Error al renderizar gráfico: {e}", text_color="red").pack(pady=10)
 
+        # CORRECCIÓN: Usar "Por Técnico" (con 'T' mayúscula)
         try:
-            _crear_grafico_barras(tabview.tab("Por técnico"), chart_data.get('tech'), 'Cantidad de servicios por técnico')
+            _crear_grafico_barras(tabview.tab("Por Técnico"), chart_data.get('tech'), 'Cantidad de servicios por técnico')
         except Exception as e:
             ctk.CTkLabel(tabview.tab("Por Técnico"), text=f"Error al renderizar gráfico: {e}", text_color="red").pack(pady=10)
 
@@ -273,3 +271,4 @@ def mostrar_pantalla_graficos(root, funcion_volver):
         args=(root, content_frame, tabview, loading_label), 
         daemon=True
     ).start()
+
