@@ -14,8 +14,6 @@ import os
 from PIL import Image as PILImage 
 
 # --- NUEVAS IMPORTACIONES PARA GRÁFICOS ---
-# Aunque la lógica principal está en el otro archivo,
-# matplotlib puede necesitar ser conocido por el hilo principal de Tk.
 try:
     import matplotlib
     matplotlib.use('TkAgg') # Especificar el backend de Tkinter para Matplotlib
@@ -200,7 +198,7 @@ def editar_usuario(cedula, usuario_data):
     ventana_edicion = ctk.CTkToplevel(app_root)
     ventana_edicion.title(f"Editar Usuario - {usuario_data['nombre']} {usuario_data['apellido']}")
     ventana_edicion.geometry("450x580")
-    ventana_edicion.configure(fg_color="#ADC9E6")
+    ventana_edicion.configure(fg_color="#F8F8F8")
     ventana_edicion.grab_set()
     ventana_edicion.focus_force()
     ventana_edicion.minsize(450, 580)
@@ -455,110 +453,386 @@ def _clear_registro_campos():
     app_root.after(0, _clear)
 
 
+
+
+
+
+
+
+
+# --- INICIO: FUNCIÓN MOVIDA FUERA DE mostrar_pantalla_registro ---
+# NUEVA FUNCIÓN AUXILIAR (MOVIDA FUERA DE mostrar_pantalla_registro)
+def abrir_ventana_seleccion_depto(root, display_entry, nombre_var):
+    """Abre una ventana emergente para seleccionar un departamento con búsqueda."""
+    
+    # Aseguramos el acceso a la función obtener_departamentos
+    deptos_map = obtener_departamentos()
+    all_deptos = sorted(list(deptos_map.keys())) # Lista de nombres de deptos
+
+    ventana = ctk.CTkToplevel(root)
+    ventana.title("Seleccionar Departamento")
+    ventana.configure(fg_color="#F7F9FB")
+    ventana.grab_set()
+    ventana.focus_force()
+    ventana.geometry("500x500") # Tamaño fijo para la búsqueda
+    
+    contenido = ctk.CTkFrame(ventana, fg_color="#FFFFFF")
+    # EXPANDIR: Quitamos el padding vertical para que el contenido se ajuste al borde.
+    contenido.pack(padx=20, pady=20, fill="both", expand=True) 
+    contenido.grid_columnconfigure(0, weight=1)
+
+    ctk.CTkLabel(contenido, text="Buscar Departamento", font=ctk.CTkFont(size=18, weight="bold"), text_color="#0C4A6E").grid(row=0, column=0, pady=(10, 15), sticky="w")
+    
+    search_entry = ctk.CTkEntry(contenido, placeholder_text="Escriba para buscar...", width=450, height=35)
+    search_entry.grid(row=1, column=0, pady=(0, 10), sticky="ew")
+    
+    # --- MODIFICACIÓN CLAVE: SCROLLABLE FRAME EXPANDIDO ---
+    scroll_frame = ctk.CTkScrollableFrame(contenido, fg_color="#F9FAFB", label_text_color="black")
+    # Usamos sticky="nsew" y pady=(0, 0) para que ocupe el espacio restante.
+    scroll_frame.grid(row=2, column=0, sticky="nsew", pady=(0, 0)) 
+    scroll_frame.grid_columnconfigure(0, weight=1)
+    
+    # Configuramos la columna 0 del contenido principal para que la lista crezca
+    contenido.grid_rowconfigure(2, weight=1) # <-- Hace que la fila 2 (scroll_frame) tome todo el espacio.
+    # ----------------------------------------------------
+
+    def seleccionar_depto(nombre):
+        display_entry.configure(state="normal")
+        display_entry.delete(0, 'end')
+        display_entry.insert(0, nombre)
+        display_entry.configure(state="readonly")
+        nombre_var.set(nombre)
+        ventana.destroy()
+    
+    # ... (El resto de las funciones render_list y filtrar_lista permanecen igual)
+
+    def render_list(filtro=""):
+        for widget in scroll_frame.winfo_children():
+            widget.destroy()
+        
+        filtro_lower = filtro.lower()
+        
+        for i, nombre in enumerate(all_deptos):
+            if not filtro or filtro_lower in nombre.lower():
+                # Usamos un botón para que sea más claro el click
+                btn = ctk.CTkButton(
+                    scroll_frame, 
+                    text=nombre, 
+                    fg_color="transparent", 
+                    hover_color="#E0F2FE", 
+                    text_color="black", 
+                    corner_radius=0, 
+                    anchor="w",
+                    command=lambda n=nombre: seleccionar_depto(n)
+                )
+                btn.grid(row=i, column=0, sticky="ew", pady=(1, 1))
+
+    def filtrar_lista(e):
+        render_list(search_entry.get())
+        
+    search_entry.bind("<KeyRelease>", filtrar_lista)
+    render_list() # Cargar la lista inicial
+    
+    # *** ELIMINACIÓN DEL BOTÓN CANCELAR ***
+    # La línea que definía el botón de Cancelar ha sido eliminada.
+    # *** ELIMINACIÓN DEL BOTÓN CANCELAR ***
+    
+
+    
+    # Botón de Cancelar
+    ctk.CTkButton(contenido, text="CANCELAR", fg_color="#6B7280", hover_color="#4B5563", width=150, height=35, command=ventana.destroy).grid(row=3, column=0, pady=(10, 0))
+# --- FIN: FUNCIÓN MOVIDA FUERA DE mostrar_pantalla_registro ---
+
+
+
 # PANTALLA: AGREGAR NUEVO DEPARTAMENTO
+# -------------------------
+# PANTALLA: GESTIÓN DE DEPARTAMENTOS (Lista izquierda + Form derecha)
+# -------------------------
+def mostrar_pantalla_departamentos(root):
+    global depto_entry, depto_notificacion
 
-def agregar_departamento_db(root, nombre_depto):
-    
-    global depto_entry
-    
-    _set_depto_notificacion("Guardando...", "#1E3D8F")
-    
-    try:
-        # Intenta insertar el nuevo departamento en la tabla "Departamento"
-        response = supabase.table('Departamento').insert({'nombre_departamento': nombre_depto}).execute()
-
-        if response.data:
-            _set_depto_notificacion("Departamento agregado con éxito!", "#16A34A")
-            root.after(0, lambda: depto_entry.delete(0, 'end'))
-        else:
-            print("Respuesta inserción depto:", response)
-            _set_depto_notificacion("Error al agregar departamento (respuesta vacía).", "red")
-
-    except Exception as e:
-        error_msg = str(e)
-        print("Error DB al agregar departamento:", error_msg)
-        if "Duplicate key value" in error_msg or "unique constraint" in error_msg:
-             _set_depto_notificacion("Error: El departamento ya existe.", "red")
-        else:
-            _set_depto_notificacion(f"Error DB: {error_msg[:50]}...", "red")
-
-def _on_agregar_depto(root):
-    global depto_entry
-    if not depto_entry:
-        return
-        
-    nombre_depto = (depto_entry.get() or "").strip()
-    
-    if not nombre_depto:
-        _set_depto_notificacion("El nombre no puede estar vacío.", "orange")
-        return
-        
-
-    threading.Thread(target=agregar_departamento_db, args=(root, nombre_depto,), daemon=True).start()
-
-
-def mostrar_pantalla_agregar_departamento(root):
-    
-    """Configura y muestra la interfaz para agregar un nuevo departamento."""
-    
-    global depto_entry, depto_notificacion, app_root
-    app_root = root
     _clear_widgets(root)
-    root.title("Agregar Nuevo Departamento")
+    root.title("Gestión de Departamentos")
 
+    # ============================
+    # CONTENEDOR PRINCIPAL
+    # ============================
+    main = ctk.CTkFrame(root, fg_color="#F2F5F9")
+    main.pack(expand=True, fill="both")
+    main.grid_rowconfigure(1, weight=1)
+    main.grid_columnconfigure(0, weight=1)
 
-    main_frame = ctk.CTkFrame(root, fg_color="#F7F9FB")
-    main_frame.pack(expand=True, fill="both")
-    main_frame.grid_rowconfigure(1, weight=1)
-    main_frame.grid_columnconfigure(0, weight=1)
+    # ============================
+    # HEADER (Estilo y posición de botón "VOLVER" corregidos)
+    # ============================
+    header = ctk.CTkFrame(main, fg_color="#0C4A6E", height=70)
+    header.grid(row=0, column=0, sticky="ew")
+    header.grid_columnconfigure(0, weight=1)  # Título
+    header.grid_columnconfigure(1, weight=0)  # Botón
 
-    
-    header_frame = ctk.CTkFrame(main_frame, fg_color="#0C4A6E", corner_radius=0, height=70)
-    header_frame.grid(row=0, column=0, sticky="ew")
-    header_frame.grid_columnconfigure(1, weight=1) 
-    header_frame.grid_columnconfigure(2, weight=0) 
+    # TÍTULO
+    ctk.CTkLabel(
+        header,
+        text="Gestión de Departamentos",
+        text_color="white",
+        font=ctk.CTkFont(size=20, weight="bold")
+    ).grid(row=0, column=0, padx=20, pady=18, sticky="w")
 
-    ctk.CTkLabel(header_frame, text="Agregar Nuevo Departamento",
-                 font=ctk.CTkFont(size=22, weight="bold"),
-                 text_color="white").grid(row=0, column=1, padx=(30, 20), pady=15, sticky="w")
-
-    # Botón VOLVER (Vuelve a la pantalla principal)
-    ctk.CTkButton(header_frame, text="VOLVER", fg_color="#3D89D1",
-                  hover_color="#1E3D8F",
-                  font=ctk.CTkFont(size=13, weight="bold"),
-                  corner_radius=8, width=120, 
-                  command=lambda: mostrar_pantalla_principal(root)).grid(row=0, column=2, padx=(10, 20), pady=12, sticky="e")
-
-    # Formulario central
-    form_frame = ctk.CTkFrame(main_frame, fg_color="#FFFFFF", corner_radius=10)
-    form_frame.grid(row=1, column=0, pady=20, padx=20, ipadx=20, ipady=20, sticky="n")
-
-    ctk.CTkLabel(form_frame, text="Ingrese el nombre del departamento", font=ctk.CTkFont(size=16, weight="bold"), text_color="#1E3D8F").pack(pady=(10, 15))
-
-    # Entrada para el nombre del departamento
-    depto_entry = ctk.CTkEntry(
-        form_frame,
-        placeholder_text="Nombre del Departamento",
-        width=320,
-        height=38,
-        font=ctk.CTkFont(size=14)
+    # BOTÓN VOLVER
+    volver_btn = ctk.CTkButton(
+        header,
+        text="VOLVER", 
+        width=90,
+        height=36,
+        fg_color="#3D89D1", 
+        hover_color="#1E3D8F",  
+        text_color="white",
+        command=lambda: mostrar_pantalla_principal(root)
     )
-    depto_entry.pack(pady=8, padx=20)
+    volver_btn.grid(row=0, column=1, padx=20, pady=17, sticky="e")
 
-    depto_notificacion = ctk.CTkLabel(form_frame, text="", font=ctk.CTkFont(size=13, weight="bold"))
-    depto_notificacion.pack(pady=8)
+    # ============================
+    # CONTENIDO PRINCIPAL
+    # ============================
+    content = ctk.CTkFrame(main, fg_color="transparent")
+    content.grid(row=1, column=0, sticky="nsew", padx=12, pady=12)
 
-    # Botón de agregar departamento
-    ctk.CTkButton(
-        form_frame,
-        text="AGREGAR DEPARTAMENTO",
-        fg_color="#16A34A", 
+    content.grid_columnconfigure(0, weight=3)
+    content.grid_columnconfigure(1, weight=2)
+    content.grid_rowconfigure(0, weight=1)
+
+    # ================================================================
+    # PANEL IZQUIERDO
+    # ================================================================
+    left = ctk.CTkFrame(content, fg_color="#FFFFFF", corner_radius=10)
+    left.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
+    left.grid_rowconfigure(1, weight=1)
+    left.grid_columnconfigure(0, weight=1)
+
+    # Acciones
+    actions = ctk.CTkFrame(left, fg_color="transparent")
+    actions.grid(row=0, column=0, sticky="ew", padx=12, pady=(10, 0))
+    actions.grid_columnconfigure(1, weight=1)
+
+    eliminar_btn = ctk.CTkButton(
+        actions,
+        text="🗑️ ELIMINAR",
+        fg_color="#DC2626",
+        hover_color="#B91C1C",
+        width=110,
+        height=34,
+        command=lambda: on_eliminar()
+    )
+    eliminar_btn.grid(row=0, column=0)
+
+    selection_label = ctk.CTkLabel(
+        actions, text="Ningún departamento seleccionado",
+        text_color="#6B7280"
+    )
+    selection_label.grid(row=0, column=1, sticky="e")
+
+    # LISTA SCROLLABLE
+    rows = ctk.CTkScrollableFrame(left, fg_color="transparent")
+    rows.grid(row=1, column=0, sticky="nsew", padx=12, pady=12)
+    rows.grid_columnconfigure(0, weight=1)
+
+    selected = {"id": None, "nombre": None}
+
+    # ================================================================
+    # PANEL DERECHO (FORM)
+    # ================================================================
+    right = ctk.CTkFrame(content, fg_color="#FFFFFF", corner_radius=10)
+    right.grid(row=0, column=1, sticky="nsew")
+    right.grid_columnconfigure(0, weight=1)
+
+    ctk.CTkLabel(
+        right,
+        text="Agregar / Editar Departamento",
+        font=ctk.CTkFont(size=16, weight="bold"),
+        text_color="#1E3D8F"
+    ).grid(row=0, column=0, pady=(20, 5), padx=20)
+
+    depto_entry = ctk.CTkEntry(right, placeholder_text="Nombre del departamento", width=320)
+    depto_entry.grid(row=1, column=0, pady=(5, 5), padx=20)
+
+    depto_notificacion = ctk.CTkLabel(right, text="", text_color="#16A34A")
+    depto_notificacion.grid(row=2, column=0, pady=(0, 10))
+
+    # --------------------------
+    # GUARDAR (Lógica de inserción integrada para depuración)
+    # --------------------------
+    def on_guardar():
+        nombre = depto_entry.get().strip()
+        if not nombre:
+            depto_notificacion.configure(text="Ingrese un nombre válido.", text_color="orange")
+            return
+
+        if selected["id"]:
+            # Es una edición
+            actualizar_departamento(selected["id"], nombre)
+            cargar_departamentos()
+            limpiar_seleccion()
+        else:
+            # Es un nuevo registro: LÓGICA DE INSERCIÓN INTEGRADA AQUÍ
+            try:
+                # Utilizamos la variable 'supabase' que debe estar definida globalmente
+                supabase.table("Departamento") \
+                    .insert({"nombre_departamento": nombre}) \
+                    .execute()
+                
+                # Éxito:
+                depto_notificacion.configure(text="Departamento agregado con éxito.", text_color="#16A34A")
+                cargar_departamentos()
+                limpiar_seleccion()
+                
+            except Exception as e:
+                # Error:
+                print(f"ERROR DE SUPABASE AL INSERTAR: {e}")
+                depto_notificacion.configure(
+                    text=f"Error al guardar: {str(e)}", 
+                    text_color="red"
+                )
+
+    guardar_btn = ctk.CTkButton(
+        right,
+        text="GUARDAR",
+        fg_color="#16A34A",
         hover_color="#15803D",
-        font=ctk.CTkFont(size=14, weight="bold"),
         width=320,
         height=42,
-        command=lambda: _on_agregar_depto(root)
-    ).pack(pady=(10, 10))
+        command=on_guardar
+    )
+    guardar_btn.grid(row=3, column=0, pady=(10, 5), padx=20)
+
+    cancelar_btn = ctk.CTkButton(
+        right,
+        text="CANCELAR",
+        fg_color="#6B7280",
+        hover_color="#4B5563",
+        width=320,
+        height=36,
+        command=lambda: limpiar_seleccion()
+    )
+    cancelar_btn.grid(row=4, column=0, pady=(0, 20))
+
+    # ============================
+    # SELECT / LIMPIAR
+    # ============================
+    def limpiar_seleccion():
+        selected["id"] = None
+        selected["nombre"] = None
+        depto_entry.delete(0, "end")
+        selection_label.configure(text="Ningún departamento seleccionado")
+        guardar_btn.configure(text="GUARDAR")
+        # Limpiar el mensaje de notificación al cancelar
+        depto_notificacion.configure(text="", text_color="#16A34A")
+
+    def seleccionar(id_dep, nombre, frame):
+        for r in rows.winfo_children():
+            r.configure(fg_color="transparent")
+
+        frame.configure(fg_color="#E0F2FE")
+
+        selected["id"] = id_dep
+        selected["nombre"] = nombre
+
+        selection_label.configure(text=f"Seleccionado: {nombre}")
+
+        depto_entry.delete(0, "end")
+        depto_entry.insert(0, nombre)
+        guardar_btn.configure(text="GUARDAR CAMBIOS")
+        # Borrar notificación al seleccionar un elemento
+        depto_notificacion.configure(text="", text_color="#16A34A") 
+
+    # ============================
+    # CRUD
+    # ============================
+    def actualizar_departamento(id_dep, nombre):
+        try:
+            supabase.table("Departamento") \
+                .update({"nombre_departamento": nombre}) \
+                .eq("id_departamento", id_dep) \
+                .execute()
+            depto_notificacion.configure(text="Departamento actualizado.", text_color="#16A34A")
+        except Exception as e:
+            depto_notificacion.configure(text=f"Error: {e}", text_color="red")
+
+    def on_eliminar():
+        if not selected["id"]:
+            tk.messagebox.showwarning("Advertencia", "Seleccione un departamento.")
+            return
+
+        if not tk.messagebox.askyesno("Confirmar", f"¿Eliminar {selected['nombre']}?"):
+            return
+
+        try:
+            supabase.table("Departamento") \
+                .delete() \
+                .eq("id_departamento", selected["id"]) \
+                .execute()
+            depto_notificacion.configure(text="Departamento eliminado.", text_color="#16A34A")
+        except Exception as e:
+            depto_notificacion.configure(text=f"Error: {e}", text_color="red")
+
+        cargar_departamentos()
+        limpiar_seleccion()
+
+    # ============================
+    # CARGAR LISTA
+    # ============================
+    def cargar_departamentos():
+        for w in rows.winfo_children():
+            w.destroy()
+
+        try:
+            data = supabase.table("Departamento") \
+                .select("id_departamento, nombre_departamento") \
+                .order("nombre_departamento") \
+                .execute().data or []
+        except:
+            data = []
+
+        # ----------------------------
+        # Renderizar departamentos
+        # ----------------------------
+        for d in data:
+            f = ctk.CTkFrame(
+                rows,
+                fg_color="transparent",
+                height=42,
+                corner_radius=0
+            )
+            f.pack(fill="x", pady=3)
+
+            f.grid_columnconfigure(0, weight=1, uniform="deptos")
+            f.configure(width=rows.winfo_width())
+
+            lbl = ctk.CTkLabel(
+                f,
+                text=d["nombre_departamento"],
+                font=ctk.CTkFont(size=14),
+                anchor="w"
+            )
+            lbl.grid(row=0, column=0, sticky="w", padx=10)
+
+            def on_select(e=None, i=d["id_departamento"], n=d["nombre_departamento"], fr=f):
+                for r in rows.winfo_children():
+                    r.configure(fg_color="transparent")
+
+                fr.configure(fg_color="#E0F2FE")
+                seleccionar(i, n, fr)
+
+            f.bind("<Button-1>", on_select)
+            lbl.bind("<Button-1>", on_select)
+
+    cargar_departamentos()
+
+
+
+
+
+
 
 
 # REGISTRO DE USUARIO CORREGIDO
@@ -570,10 +844,14 @@ def registrar_usuario(root, roles_map, departamentos_map):
     nombre_val = (registro_entries.get('nombre').get() or "").strip()
     apellido_val = (registro_entries.get('apellido').get() or "").strip()
     rol_nombre = (registro_entries.get('rol').get() or "").strip()
-    depto_nombre = (registro_entries.get('departamento').get() or "").strip()
-
+    
+    # --- CAMBIO AQUÍ: OBTENER EL VALOR DE LA VARIABLE StringVar ---
+    depto_var = registro_entries.get('departamento')
+    depto_nombre = (depto_var.get() or "").strip() # Usamos .get() en la variable tk.StringVar
+    # -----------------------------------------------------------
 
     if not cedula_val or not nombre_val or not apellido_val:
+    # ... (el resto de la función se mantiene igual)
         _set_registro_notificacion("Faltan campos obligatorios (Cédula, Nombre, Apellido).", "orange")
         return
 
@@ -1059,7 +1337,10 @@ def mostrar_pantalla_registro(root):
 
     apellido_ent = ctk.CTkEntry(form_frame, placeholder_text="Apellido", width=320, height=38, corner_radius=10, border_width=1, fg_color="white", border_color="#A1A1A1", text_color="black", font=ctk.CTkFont(size=14))
     apellido_ent.pack(pady=8)
-    registro_entries['apellido'] = apellido_ent
+    registro_entries['apellido'] = apellido_ent    
+    
+    # SELECTOR DE ROL CON BARRA DE DESPLAZAMIENTO MEJORADO (EL ROL NO TIENE MUCHOS ITEMS, SE MANTIENE EL COMBOBOX)
+    # ... (Código anterior de Cédula, Nombre, Apellido)
 
     # SELECTOR DE DEPARTAMENTO CON BARRA DE DESPLAZAMIENTO MEJORADO
     ctk.CTkLabel(form_frame, text="Departamento:", text_color="#1E1E1E").pack(pady=(10, 0))
@@ -1088,7 +1369,12 @@ def mostrar_pantalla_registro(root):
     registro_entries['departamento'] = depto_combo
 
     # SELECTOR DE ROL CON BARRA DE DESPLAZAMIENTO MEJORADO
+# ----------------------------------------------------
+# --- INICIO: SELECTOR DE ROL (MOVIDO ARRIBA) ---
+# ----------------------------------------------------
+    # SELECTOR DE ROL CON BARRA DE DESPLAZAMIENTO MEJORADO (EL ROL NO TIENE MUCHOS ITEMS, SE MANTIENE EL COMBOBOX)
     ctk.CTkLabel(form_frame, text="Rol:", text_color="#1E1E1E").pack(pady=(10, 0))
+    
     rol_vals = rol_names if rol_names else ["-- Sin roles --"]
 
     # Crear el ComboBox para roles con las mismas propiedades
@@ -1105,13 +1391,57 @@ def mostrar_pantalla_registro(root):
     )
 
     if rol_names:
-        default_rol = "Usuario Estándar" if "Usuario Estándar" in rol_names else rol_names[0]
+        default_rol = "usuario" if "usuario" in rol_names else rol_names[0]
         rol_combo.set(default_rol)
     else:
         rol_combo.set("-- Sin roles --")
-    rol_combo.pack(pady=(4, 10))
+    rol_combo.pack(pady=(4, 15)) # Aumento el margen inferior a 15 para separarlo de Departamento
     registro_entries['rol'] = rol_combo
+# ----------------------------------------------------
+# --- FIN: SELECTOR DE ROL ---
+# ----------------------------------------------------
 
+
+# ----------------------------------------------------
+# --- INICIO: REEMPLAZO DEL COMBOBOX DE DEPARTAMENTO (MOVIDO ABAJO) ---
+# ----------------------------------------------------
+    ctk.CTkLabel(form_frame, text="Departamento:", text_color="#1E1E1E").pack(pady=(10, 0))
+
+    # 1. Entrada de texto para mostrar el valor (deshabilitada)
+    depto_display = ctk.CTkEntry(form_frame, 
+                                 placeholder_text="Seleccione un Departamento...", 
+                                 width=320, 
+                                 height=38, 
+                                 corner_radius=10, 
+                                 border_width=1, 
+                                 fg_color="white", 
+                                 border_color="#A1A1A1", 
+                                 text_color="black", 
+                                 font=ctk.CTkFont(size=14))
+    depto_display.pack(pady=(4, 0))
+    depto_display.insert(0, departamento_names[0] if departamento_names else "-- Sin departamentos --")
+    depto_display.configure(state="readonly")
+    
+    # 2. Variable oculta para almacenar el nombre real (para el registro)
+    depto_nombre_var = tk.StringVar(value=departamento_names[0] if departamento_names else "")
+    registro_entries['departamento'] = depto_nombre_var 
+
+    # 3. Botón para abrir la ventana de búsqueda
+    ctk.CTkButton(form_frame, text="Buscar/Seleccionar", 
+                  width=320, height=30, 
+                  fg_color="#3D89D1", hover_color="#1E3D8F",
+                  font=ctk.CTkFont(size=12, weight="bold"),
+                  command=lambda: abrir_ventana_seleccion_depto(root, depto_display, depto_nombre_var)).pack(pady=(10, 19)) # Ajustado el pady superior a 4 para separar
+# ----------------------------------------------------
+# --- FIN: REEMPLAZO DEL COMBOBOX DE DEPARTAMENTO ---
+# ----------------------------------------------------
+
+
+# ----------------------------------------------------
+# --- INICIO: BOTÓN REGISTRAR ---
+# ----------------------------------------------------
+    # Notificación de registro
+    global registro_notificacion
     registro_notificacion = ctk.CTkLabel(form_frame, text="", font=ctk.CTkFont(size=13, weight="bold"))
     registro_notificacion.pack(pady=8)
 
@@ -1124,8 +1454,12 @@ def mostrar_pantalla_registro(root):
     ctk.CTkButton(form_frame, text="REGISTRAR", fg_color="#16A34A", hover_color="#15803D",
                   font=ctk.CTkFont(size=14, weight="bold"), width=320, height=42,
                   command=_on_registrar).pack(pady=(10, 6))
+<<<<<<< HEAD
     # PANTALLA PRINCIPAL (Lista de Servicios) 
 
+=======
+
+>
 def mostrar_pantalla_principal(root):
     _clear_widgets(root)
 
@@ -1254,7 +1588,7 @@ def mostrar_pantalla_principal(root):
                       hover_color="#15803D",    # <-- CAMBIO: Hover verde
                       width=40, height=40,
                       corner_radius=8,       # <-- Añadido: para que se vea bien
-                      command=lambda: mostrar_pantalla_agregar_departamento(root)
+                      command=lambda: mostrar_pantalla_departamentos(root)
                       ).grid(row=0, column=1, padx=(10, 5), pady=12, sticky="e")
     else:
         # Fallback a botón de texto si la imagen no carga
@@ -1262,7 +1596,7 @@ def mostrar_pantalla_principal(root):
                       hover_color="#15803D",
                       font=ctk.CTkFont(size=13, weight="bold"),
                       corner_radius=8, width=180, height=40,
-                      command=lambda: mostrar_pantalla_agregar_departamento(root)
+                      command=lambda: mostrar_pantalla_departamentos(root)
                       ).grid(row=0, column=1, padx=(10, 5), pady=12, sticky="e")
 
     # Botón 2: AGREGAR USUARIO
