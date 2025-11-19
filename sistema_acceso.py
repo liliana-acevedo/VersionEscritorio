@@ -232,47 +232,106 @@ def editar_usuario(cedula, usuario_data):
     ctk.CTkLabel(content_frame, text="Cédula:", text_color="#1E3D8F", 
                  font=ctk.CTkFont(size=12, weight="bold")).pack(pady=(5, 5), anchor="w")
     cedula_entry = ctk.CTkEntry(content_frame, 
-                               fg_color="#F8FAFC", border_color="#D1D5DB",
-                               text_color="#64748B", font=ctk.CTkFont(size=12),
-                               border_width=1, corner_radius=6,
-                               height=35)
+                                 fg_color="#F8FAFC", border_color="#D1D5DB",
+                                 text_color="#64748B", font=ctk.CTkFont(size=12),
+                                 border_width=1, corner_radius=6,
+                                 height=35)
     cedula_entry.insert(0, str(cedula))
     cedula_entry.configure(state="disabled")
     cedula_entry.pack(pady=(0, 12), fill="x")
     
-    # Nombre - compacto
+    # =========================================================================
+    # INSERCIÓN: CAMPO 'NOMBRE' FALTANTE (Soluciona KeyError)
+    # =========================================================================
     ctk.CTkLabel(content_frame, text="Nombre:", text_color="#1E3D8F",
                  font=ctk.CTkFont(size=12, weight="bold")).pack(pady=(3, 5), anchor="w")
     nombre_entry = ctk.CTkEntry(content_frame,
-                               fg_color="white", border_color="#CBD5E1",
-                               text_color="#1E293B", font=ctk.CTkFont(size=12),
-                               border_width=1, corner_radius=6,
-                               placeholder_text="Ingrese el nombre",
-                               height=35)
-    nombre_entry.insert(0, usuario_data.get('nombre', ''))
-    nombre_entry.pack(pady=(0, 12), fill="x")
-    campos['nombre'] = nombre_entry
-    
-    # Apellido - compacto
-    ctk.CTkLabel(content_frame, text="Apellido:", text_color="#1E3D8F",
-                 font=ctk.CTkFont(size=12, weight="bold")).pack(pady=(3, 5), anchor="w")
-    apellido_entry = ctk.CTkEntry(content_frame,
                                  fg_color="white", border_color="#CBD5E1",
                                  text_color="#1E293B", font=ctk.CTkFont(size=12),
                                  border_width=1, corner_radius=6,
-                                 placeholder_text="Ingrese el apellido",
+                                 placeholder_text="Ingrese el nombre",
                                  height=35)
+    nombre_entry.insert(0, usuario_data.get('nombre', ''))
+    nombre_entry.pack(pady=(0, 12), fill="x")
+    campos['nombre'] = nombre_entry
+    # =========================================================================
+    
+    # Nombre - compacto (Este bloque es ahora para el Apellido)
+    ctk.CTkLabel(content_frame, text="Apellido:", text_color="#1E3D8F",
+                 font=ctk.CTkFont(size=12, weight="bold")).pack(pady=(3, 5), anchor="w")
+    apellido_entry = ctk.CTkEntry(content_frame,
+                                  fg_color="white", border_color="#CBD5E1",
+                                  text_color="#1E293B", font=ctk.CTkFont(size=12),
+                                  border_width=1, corner_radius=6,
+                                  placeholder_text="Ingrese el apellido",
+                                  height=35)
     apellido_entry.insert(0, usuario_data.get('apellido', ''))
     apellido_entry.pack(pady=(0, 12), fill="x")
     campos['apellido'] = apellido_entry
     
     # Departamento - compacto
-    ctk.CTkLabel(content_frame, text="Departamento:", text_color="#1E3D8F",
-                 font=ctk.CTkFont(size=12, weight="bold")).pack(pady=(3, 5), anchor="w")
+    # === SELECTOR DE DEPARTAMENTO (IGUAL QUE EN REGISTRAR USUARIO) ===
+    ctk.CTkLabel(content_frame, text="Departamento:", text_color="#1E1E1E",
+                 font=ctk.CTkFont(size=12, weight="bold")).pack(pady=(0, 5), anchor="w")
+
     departamentos_map = obtener_departamentos()
     departamento_names = list(departamentos_map.keys())
+
+    # Campo de visualización
+    depto_display = ctk.CTkEntry(content_frame,
+                                  placeholder_text="Seleccione un Departamento...",
+                                  width=320, height=35,
+                                  corner_radius=6, border_width=1,
+                                  fg_color="white",
+                                  border_color="#A1A1A1",
+                                  text_color="black")
+    depto_display.pack(pady=(0, 8), fill="x")
+
+    # Obtener departamento actual del usuario
+    depto_actual = usuario_data.get('departamento', '')
+    if depto_actual in departamento_names:
+        depto_display.insert(0, depto_actual)
+    else:
+        depto_display.insert(0, departamento_names[0] if departamento_names else "-- Sin departamentos --")
+    depto_display.configure(state="readonly")
+
+    # Variable donde realmente guardamos el nombre seleccionado
+    depto_nombre_var = tk.StringVar(value=depto_display.get())
+    campos['departamento'] = depto_nombre_var
+
+    # Botón para abrir la ventana de selección
+    ctk.CTkButton(content_frame, text="Buscar/Seleccionar",
+                  width=320, height=30,
+                  fg_color="#3D89D1", hover_color="#1E3D8F",
+                  font=ctk.CTkFont(size=12, weight="bold"),
+                  command=lambda: abrir_ventana_seleccion_depto(
+                      ventana_edicion, 
+                      depto_display, 
+                      depto_nombre_var
+                  )).pack(pady=(0, 12))
+
     
-    depto_combo = ctk.CTkComboBox(content_frame, values=departamento_names, 
+#
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    # Rol - compacto
+    ctk.CTkLabel(content_frame, text="Rol:", text_color="#1E3D8F",
+                 font=ctk.CTkFont(size=12, weight="bold")).pack(pady=(3, 5), anchor="w")
+    roles_map = obtener_roles()
+    rol_names = list(roles_map.keys())
+    
+    rol_combo = ctk.CTkComboBox(content_frame, values=rol_names, 
                                  dropdown_font=ctk.CTkFont(size=11),
                                  dropdown_fg_color="white",
                                  dropdown_text_color="black",
@@ -283,37 +342,8 @@ def editar_usuario(cedula, usuario_data):
                                  fg_color="white",
                                  text_color="#1E293B",
                                  border_width=1,
-                                 corner_radius=6,
-                                 height=35)
-    
-    if departamento_names:
-        depto_actual = usuario_data.get('departamento', 'Sin departamento')
-        if depto_actual in departamento_names:
-            depto_combo.set(depto_actual)
-        else:
-            depto_combo.set(departamento_names[0])
-    depto_combo.pack(pady=(0, 12), fill="x")
-    campos['departamento'] = depto_combo
-    
-    # Rol - compacto
-    ctk.CTkLabel(content_frame, text="Rol:", text_color="#1E3D8F",
-                 font=ctk.CTkFont(size=12, weight="bold")).pack(pady=(3, 5), anchor="w")
-    roles_map = obtener_roles()
-    rol_names = list(roles_map.keys())
-    
-    rol_combo = ctk.CTkComboBox(content_frame, values=rol_names, 
-                               dropdown_font=ctk.CTkFont(size=11),
-                               dropdown_fg_color="white",
-                               dropdown_text_color="black",
-                               dropdown_hover_color="#F1F5F9",
-                               border_color="#CBD5E1",
-                               button_color="#0C4A6E",
-                               button_hover_color="#1E3D8F",
-                               fg_color="white",
-                               text_color="#1E293B",
-                               border_width=1,
-                                 corner_radius=6,
-                                 height=35)
+                                  corner_radius=6,
+                                  height=35)
     
     if rol_names:
         rol_actual = usuario_data.get('rol', 'Sin rol')
@@ -326,7 +356,7 @@ def editar_usuario(cedula, usuario_data):
     
     # Notificación compacta
     notificacion = ctk.CTkLabel(content_frame, text="", 
-                               font=ctk.CTkFont(size=11, weight="bold"))
+                                 font=ctk.CTkFont(size=11, weight="bold"))
     notificacion.pack(pady=(8, 10))
     
     def _actualizar_seguro(datos_actualizados, cedula_int):
@@ -387,8 +417,8 @@ def editar_usuario(cedula, usuario_data):
             cedula_int = int(cedula)
             # Ejecutar en hilo separado pero con manejo seguro
             threading.Thread(target=_actualizar_seguro, 
-                           args=(datos_actualizados, cedula_int), 
-                           daemon=True).start()
+                             args=(datos_actualizados, cedula_int), 
+                             daemon=True).start()
         except ValueError:
             notificacion.configure(text="⚠️ Cédula debe ser numérica", text_color="#DC2626")
     
@@ -402,19 +432,19 @@ def editar_usuario(cedula, usuario_data):
     
     # Botones compactos
     btn_guardar = ctk.CTkButton(botones_frame, text="GUARDAR", 
-                  fg_color="#16A34A", hover_color="#15803D", 
-                  font=ctk.CTkFont(size=12, weight="bold"),
-                  height=36,
-                  corner_radius=6,
-                  command=guardar_cambios)
+                                 fg_color="#16A34A", hover_color="#15803D", 
+                                 font=ctk.CTkFont(size=12, weight="bold"),
+                                 height=36,
+                                 corner_radius=6,
+                                 command=guardar_cambios)
     btn_guardar.grid(row=0, column=0, padx=(0, 8), sticky="ew")
     
     btn_cancelar = ctk.CTkButton(botones_frame, text="CANCELAR", 
-                  fg_color="#6B7280", hover_color="#4B5563", 
-                  font=ctk.CTkFont(size=12, weight="bold"),
-                  height=36,
-                  corner_radius=6,
-                  command=cerrar_ventana)
+                                 fg_color="#6B7280", hover_color="#4B5563", 
+                                 font=ctk.CTkFont(size=12, weight="bold"),
+                                 height=36,
+                                 corner_radius=6,
+                                 command=cerrar_ventana)
     btn_cancelar.grid(row=0, column=1, padx=(8, 0), sticky="ew")
     
     # Centrar la ventana en la pantalla
@@ -1009,16 +1039,25 @@ def obtener_servicios_filtrados_base(query_builder):
 
 
 # --- PANTALLA DE REGISTRO DE USUARIO ---
-def mostrar_pantalla_registro(root):
+# ... (código anterior se mantiene igual)
 
+# ELIMINAR COMPLETAMENTE LA FUNCIÓN editar_usuario
+# Buscar y eliminar toda la función editar_usuario(cedula, usuario_data)
+
+# MODIFICAR LA FUNCIÓN mostrar_pantalla_registro
+def mostrar_pantalla_registro(root):
+    """
+    Muestra la pantalla de registro de usuario con funcionalidad unificada
+    para agregar y editar usuarios.
+    """
     global registro_entries, registro_notificacion, app_root, usuario_seleccionado
     app_root = root
-    usuario_seleccionado = None  # Reiniciar selección
+    usuario_seleccionado = None
     _clear_widgets(root)
-    root.title("Registro de Usuario")
+    root.title("Gestión de Usuarios")
 
-    departamentos_map = obtener_departamentos()  # {nombre: id}
-    roles_map = obtener_roles()  # {nombre: id}
+    departamentos_map = obtener_departamentos()
+    roles_map = obtener_roles()
     departamento_names = list(departamentos_map.keys())
     rol_names = list(roles_map.keys())
 
@@ -1027,21 +1066,15 @@ def mostrar_pantalla_registro(root):
     main_frame.grid_rowconfigure(1, weight=1)
     main_frame.grid_columnconfigure(0, weight=1)
 
+    # HEADER
     header_frame = ctk.CTkFrame(main_frame, fg_color="#0C4A6E", corner_radius=0, height=70)
     header_frame.grid(row=0, column=0, sticky="ew")
-    header_frame.grid_columnconfigure(1, weight=1) # Título
-    header_frame.grid_columnconfigure(2, weight=0) # Botón VOLVER
+    header_frame.grid_columnconfigure(1, weight=1)
+    header_frame.grid_columnconfigure(2, weight=0)
 
-    ctk.CTkLabel(header_frame, text="REGISTRO DE NUEVO USUARIO",
+    ctk.CTkLabel(header_frame, text="GESTIÓN DE USUARIOS",
                  font=ctk.CTkFont(size=22, weight="bold"),
                  text_color="white").grid(row=0, column=1, padx=(30, 20), pady=15, sticky="w")
-
-    # --- INICIO: CARGAR ICONO DE RECARGAR ---
-    try:
-        reload_icon = ctk.CTkImage(PILImage.open("imagen/recargar.png"), size=(25, 25))
-    except Exception:
-        reload_icon = None
-    # --- FIN: CARGAR ICONO DE RECARGAR ---
 
     # Botón VOLVER
     ctk.CTkButton(header_frame, text="VOLVER", fg_color="#3D89D1",
@@ -1050,79 +1083,36 @@ def mostrar_pantalla_registro(root):
                   corner_radius=8, width=120, height=40,
                   command=lambda: mostrar_pantalla_principal(root)).grid(row=0, column=2, padx=(10, 20), pady=12, sticky="e")
 
-    # --- INICIO: BOTÓN RECARGAR EN EL HEADER ---
-    # Función para recargar la pantalla de registro
-    def recargar_registro():
-        mostrar_pantalla_registro(root)
-    
-    # Botón de Recargar en el header (al lado del botón VOLVER)
-    if reload_icon:
-        ctk.CTkButton(
-            header_frame, 
-            text="", 
-            image=reload_icon, 
-            width=40, 
-            height=40,
-            fg_color="#E5E7EB", 
-            hover_color="#CBD5E1", 
-            corner_radius=8,
-            command=recargar_registro
-        ).grid(row=0, column=3, padx=(0, 10), pady=12, sticky="e")
-    else:
-        ctk.CTkButton(
-            header_frame, 
-            text="⟳", 
-            width=40, 
-            height=40,
-            fg_color="#E5E7EB", 
-            hover_color="#CBD5E1", 
-            corner_radius=8,
-            font=ctk.CTkFont(size=16, weight="bold"),
-            command=recargar_registro
-        ).grid(row=0, column=3, padx=(0, 10), pady=12, sticky="e")
-    # --- FIN: BOTÓN RECARGAR EN EL HEADER ---
-
-    # Ajustar el layout del content_frame
+    # CONTENIDO PRINCIPAL
     content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
     content_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
     content_frame.grid_rowconfigure(0, weight=1)
-    content_frame.grid_columnconfigure(0, weight=3)  # Más peso para la tabla
-    content_frame.grid_columnconfigure(1, weight=1) # Menos peso para el formulario
-    
-    # Columna 0 (Izquierda): Contenedor para la lista de usuarios.
+    content_frame.grid_columnconfigure(0, weight=3)
+    content_frame.grid_columnconfigure(1, weight=1)
+
+    # COLUMNA IZQUIERDA - Lista de usuarios
     col_vacia_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
     col_vacia_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
     
-    # --- BLOQUE DE CÓDIGO MEJORADO: LISTA DE USUARIOS COMO EN LA IMAGEN ---
     try:
-        # Ejecutar la función para obtener el DataFrame con departamentos y roles
         df_usuarios = obtener_usuarios_completos() 
         
-        # Título de la sección
         ctk.CTkLabel(col_vacia_frame, text="Usuarios Registrados", 
                      text_color="#0C4A6E", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=(15, 10))
 
-        # Botones de acción en la parte superior
+        # Botones de acción
         botones_superior_frame = ctk.CTkFrame(col_vacia_frame, fg_color="transparent")
         botones_superior_frame.pack(fill="x", padx=20, pady=(0, 10))
         
-        # Botón Editar
-        btn_editar_superior = ctk.CTkButton(botones_superior_frame, text="✏️ EDITAR USUARIO", 
-                                           fg_color="#3D89D1", hover_color="#1E3D8F",
-                                           font=ctk.CTkFont(size=13, weight="bold"),
-                                           width=150, height=35,
-                                           command=lambda: _editar_usuario_seleccionado())
-        btn_editar_superior.pack(side="left", padx=(0, 10))
-        
         # Botón Eliminar
-        btn_eliminar_superior = ctk.CTkButton(botones_superior_frame, text="🗑️ ELIMINAR USUARIO", 
+        btn_eliminar_superior = ctk.CTkButton(botones_superior_frame, text="🗑️ ELIMINAR", 
                                              fg_color="#DC2626", hover_color="#B91C1C",
                                              font=ctk.CTkFont(size=13, weight="bold"),
-                                             width=150, height=35,
+                                             width=120, height=35,
                                              command=lambda: _eliminar_usuario_seleccionado())
-        btn_eliminar_superior.pack(side="left")
+        btn_eliminar_superior.pack(side="left", padx=(0, 10))
         
-        # Etiqueta para mostrar usuario seleccionado
+        # Etiqueta de selección
         seleccion_label = ctk.CTkLabel(botones_superior_frame, text="Ningún usuario seleccionado", 
                                       text_color="#6B7280", font=ctk.CTkFont(size=12))
         seleccion_label.pack(side="right", padx=10)
@@ -1131,52 +1121,51 @@ def mostrar_pantalla_registro(root):
             ctk.CTkLabel(col_vacia_frame, text="No se encontraron usuarios en la base de datos.", 
                          text_color="#1E3D8F", font=ctk.CTkFont(size=14)).pack(pady=10)
         else:
-            # Contenedor para la 'tabla' con bordes
+            # Contenedor para la tabla
             table_container = ctk.CTkFrame(col_vacia_frame, fg_color="#FFFFFF", corner_radius=10, 
                                            border_width=1, border_color="#E6E6E6")
             table_container.pack(fill="both", expand=True, padx=20, pady=10)
             
-            # Marco para el encabezado (Header Fijo)
-            header_frame = ctk.CTkFrame(table_container, fg_color="#F3F4F6", corner_radius=0)
-            header_frame.pack(fill="x")
+            # Marco para el encabezado
+            header_frame_table = ctk.CTkFrame(table_container, fg_color="#F3F4F6", corner_radius=0)
+            header_frame_table.pack(fill="x")
             
-            # CONFIGURACIÓN DE COLUMNAS CORREGIDA - TODAS CON weight=0 EXCEPTO DEPARTAMENTO
-            header_frame.grid_columnconfigure(0, weight=0, minsize=120)  # Nombre
-            header_frame.grid_columnconfigure(1, weight=0, minsize=120)  # Apellido
-            header_frame.grid_columnconfigure(2, weight=0, minsize=100)  # Cédula
-            header_frame.grid_columnconfigure(3, weight=1, minsize=350)  # Departamento (única que se expande)
-            header_frame.grid_columnconfigure(4, weight=0, minsize=120)  # Rol - CORREGIDO: weight=0 y minsize aumentado
+            # Configuración de columnas
+            header_frame_table.grid_columnconfigure(0, weight=0, minsize=120)
+            header_frame_table.grid_columnconfigure(1, weight=0, minsize=120)
+            header_frame_table.grid_columnconfigure(2, weight=0, minsize=100)
+            header_frame_table.grid_columnconfigure(3, weight=1, minsize=350)
+            header_frame_table.grid_columnconfigure(4, weight=0, minsize=120)
             
-            # Encabezados de la tabla ALINEADOS A LA IZQUIERDA como en la imagen
-            ctk.CTkLabel(header_frame, text="NOMBRE", font=ctk.CTkFont(size=13, weight="bold"), 
+            # Encabezados de la tabla
+            ctk.CTkLabel(header_frame_table, text="NOMBRE", font=ctk.CTkFont(size=13, weight="bold"), 
                          text_color="#374151", anchor="w").grid(row=0, column=0, padx=8, pady=10, sticky="w")
-            ctk.CTkLabel(header_frame, text="APELLIDO", font=ctk.CTkFont(size=13, weight="bold"), 
+            ctk.CTkLabel(header_frame_table, text="APELLIDO", font=ctk.CTkFont(size=13, weight="bold"), 
                          text_color="#374151", anchor="w").grid(row=0, column=1, padx=8, pady=10, sticky="w")
-            ctk.CTkLabel(header_frame, text="CÉDULA", font=ctk.CTkFont(size=13, weight="bold"), 
+            ctk.CTkLabel(header_frame_table, text="CÉDULA", font=ctk.CTkFont(size=13, weight="bold"), 
                          text_color="#374151", anchor="w").grid(row=0, column=2, padx=8, pady=10, sticky="w")
-            ctk.CTkLabel(header_frame, text="DEPARTAMENTO", font=ctk.CTkFont(size=13, weight="bold"), 
+            ctk.CTkLabel(header_frame_table, text="DEPARTAMENTO", font=ctk.CTkFont(size=13, weight="bold"), 
                          text_color="#374151", anchor="w").grid(row=0, column=3, padx=8, pady=10, sticky="w")
-            ctk.CTkLabel(header_frame, text="ROL", font=ctk.CTkFont(size=13, weight="bold"), 
+            ctk.CTkLabel(header_frame_table, text="ROL", font=ctk.CTkFont(size=13, weight="bold"), 
                          text_color="#374151", anchor="w").grid(row=0, column=4, padx=8, pady=10, sticky="w")
 
-            # Creamos un marco desplazable para los datos (Scrollable body)
+            # Marco desplazable para los datos
             scroll_frame = ctk.CTkScrollableFrame(table_container, fg_color="#FFFFFF", corner_radius=0)
             scroll_frame.pack(fill="both", expand=True)
 
-            # CONFIGURACIÓN DE COLUMNAS DEL CUERPO CORREGIDA - MISMOS VALORES QUE EL HEADER
-            scroll_frame.grid_columnconfigure(0, weight=0, minsize=120)  # Nombre
-            scroll_frame.grid_columnconfigure(1, weight=0, minsize=120)  # Apellido
-            scroll_frame.grid_columnconfigure(2, weight=0, minsize=100)  # Cédula
-            scroll_frame.grid_columnconfigure(3, weight=1, minsize=350)  # Departamento (única que se expande)
-            scroll_frame.grid_columnconfigure(4, weight=0, minsize=120)  # Rol - CORREGIDO: weight=0 y minsize aumentado
+            # Configuración de columnas del cuerpo
+            scroll_frame.grid_columnconfigure(0, weight=0, minsize=120)
+            scroll_frame.grid_columnconfigure(1, weight=0, minsize=120)
+            scroll_frame.grid_columnconfigure(2, weight=0, minsize=100)
+            scroll_frame.grid_columnconfigure(3, weight=1, minsize=350)
+            scroll_frame.grid_columnconfigure(4, weight=0, minsize=120)
             
             # Función para manejar la selección de usuario
-            def seleccionar_usuario(cedula, nombre_completo, row_frame):
+            def seleccionar_usuario(cedula, nombre_completo, row_frame, usuario_data):
                 global usuario_seleccionado
                 # Resetear color de todas las filas
                 for widget in scroll_frame.winfo_children():
                     if isinstance(widget, ctk.CTkFrame):
-                        # Restaurar colores alternos
                         index = scroll_frame.winfo_children().index(widget)
                         bg_color = "#FFFFFF" if index % 2 == 0 else "#F9FAFB"
                         widget.configure(fg_color=bg_color)
@@ -1186,26 +1175,30 @@ def mostrar_pantalla_registro(root):
                 usuario_seleccionado = {
                     'cedula': cedula,
                     'nombre_completo': nombre_completo,
-                    'row_frame': row_frame  # Guardar referencia al frame
+                    'row_frame': row_frame,
+                    'data': usuario_data
                 }
                 seleccion_label.configure(text=f"Seleccionado: {nombre_completo}", text_color="#0C4A6E")
+                
+                # Cargar datos en el formulario automáticamente
+                cargar_datos_formulario(usuario_data)
             
-            # Iteramos sobre el DataFrame y creamos etiquetas para cada fila (con rayas)
+            # Iterar sobre el DataFrame y crear filas
             for i, row in df_usuarios.iterrows():
-                # Color de fondo alternante para 'rayas' (striping)
+                # Color de fondo alternante
                 bg_color = "#FFFFFF" if i % 2 == 0 else "#F9FAFB" 
                 text_color = "#374151"
                 
-                # Marco de la Fila (contenedor para el striping)
+                # Marco de la Fila
                 row_frame = ctk.CTkFrame(scroll_frame, fg_color=bg_color, corner_radius=0, height=35)
                 row_frame.pack(fill="x")
                 
-                # CONFIGURACIÓN DE COLUMNAS DE LA FILA CORREGIDA - MISMOS VALORES
-                row_frame.grid_columnconfigure(0, weight=0, minsize=120)  # Nombre
-                row_frame.grid_columnconfigure(1, weight=0, minsize=120)  # Apellido
-                row_frame.grid_columnconfigure(2, weight=0, minsize=100)  # Cédula
-                row_frame.grid_columnconfigure(3, weight=1, minsize=350)  # Departamento (única que se expande)
-                row_frame.grid_columnconfigure(4, weight=0, minsize=120)  # Rol - CORREGIDO: weight=0 y minsize aumentado
+                # Configuración de columnas de la fila
+                row_frame.grid_columnconfigure(0, weight=0, minsize=120)
+                row_frame.grid_columnconfigure(1, weight=0, minsize=120)
+                row_frame.grid_columnconfigure(2, weight=0, minsize=100)
+                row_frame.grid_columnconfigure(3, weight=1, minsize=350)
+                row_frame.grid_columnconfigure(4, weight=0, minsize=120)
 
                 nombre = str(row.get('nombre', '')).strip()
                 apellido = str(row.get('apellido', '')).strip()
@@ -1213,7 +1206,7 @@ def mostrar_pantalla_registro(root):
                 departamento = str(row.get('departamento', 'Sin departamento')).strip()
                 rol = str(row.get('rol', 'Sin rol')).strip()
                 
-                # --- CORRECCIÓN: CONVERSIÓN DE ROLES AL FORMATO DE LA IMAGEN 2 ---
+                # Formatear rol
                 if rol.lower() == 'administrador':
                     rol_mostrar = "administrador"
                 elif rol.lower() == 'usuario' or rol.lower() == 'usuario estándar':
@@ -1221,162 +1214,105 @@ def mostrar_pantalla_registro(root):
                 elif rol.lower() == 'tecnico de soporte':
                     rol_mostrar = "tecnico de soporte"
                 else:
-                    rol_mostrar = rol.lower()  # Mantener el valor original en minúsculas
+                    rol_mostrar = rol.lower()
                 
                 nombre_completo = f"{nombre} {apellido}".strip()
                 
-                # Hacer que toda la fila sea clickeable
-                row_frame.bind("<Button-1>", lambda e, c=cedula, n=nombre_completo, rf=row_frame: seleccionar_usuario(c, n, rf))
+                # Datos completos del usuario para el formulario
+                usuario_data = {
+                    'cedula': cedula,
+                    'nombre': nombre,
+                    'apellido': apellido,
+                    'departamento': departamento,
+                    'rol': rol
+                }
                 
-                # Etiquetas ALINEADAS A LA IZQUIERDA como en la imagen
+                # Hacer que toda la fila sea clickeable
+                row_frame.bind("<Button-1>", lambda e, c=cedula, n=nombre_completo, rf=row_frame, ud=usuario_data: seleccionar_usuario(c, n, rf, ud))
+                
+                # Etiquetas de datos
                 lbl_nombre = ctk.CTkLabel(row_frame, text=nombre, font=ctk.CTkFont(size=13), 
                                          text_color=text_color, anchor="w")
                 lbl_nombre.grid(row=0, column=0, padx=8, pady=8, sticky="w")
-                lbl_nombre.bind("<Button-1>", lambda e, c=cedula, n=nombre_completo, rf=row_frame: seleccionar_usuario(c, n, rf))
+                lbl_nombre.bind("<Button-1>", lambda e, c=cedula, n=nombre_completo, rf=row_frame, ud=usuario_data: seleccionar_usuario(c, n, rf, ud))
                 
                 lbl_apellido = ctk.CTkLabel(row_frame, text=apellido, font=ctk.CTkFont(size=13), 
                                            text_color=text_color, anchor="w")
                 lbl_apellido.grid(row=0, column=1, padx=8, pady=8, sticky="w")
-                lbl_apellido.bind("<Button-1>", lambda e, c=cedula, n=nombre_completo, rf=row_frame: seleccionar_usuario(c, n, rf))
+                lbl_apellido.bind("<Button-1>", lambda e, c=cedula, n=nombre_completo, rf=row_frame, ud=usuario_data: seleccionar_usuario(c, n, rf, ud))
 
                 lbl_cedula = ctk.CTkLabel(row_frame, text=cedula, font=ctk.CTkFont(size=13), 
                                          text_color=text_color, anchor="w")
                 lbl_cedula.grid(row=0, column=2, padx=8, pady=8, sticky="w")
-                lbl_cedula.bind("<Button-1>", lambda e, c=cedula, n=nombre_completo, rf=row_frame: seleccionar_usuario(c, n, rf))
+                lbl_cedula.bind("<Button-1>", lambda e, c=cedula, n=nombre_completo, rf=row_frame, ud=usuario_data: seleccionar_usuario(c, n, rf, ud))
 
                 lbl_depto = ctk.CTkLabel(row_frame, text=departamento, font=ctk.CTkFont(size=13), 
                                         text_color=text_color, anchor="w")
                 lbl_depto.grid(row=0, column=3, padx=8, pady=8, sticky="w")
-                lbl_depto.bind("<Button-1>", lambda e, c=cedula, n=nombre_completo, rf=row_frame: seleccionar_usuario(c, n, rf))
+                lbl_depto.bind("<Button-1>", lambda e, c=cedula, n=nombre_completo, rf=row_frame, ud=usuario_data: seleccionar_usuario(c, n, rf, ud))
 
-                # --- ETIQUETA DE ROL CON EL FORMATO CORREGIDO ---
                 lbl_rol = ctk.CTkLabel(row_frame, text=rol_mostrar, font=ctk.CTkFont(size=13), 
                                       text_color=text_color, anchor="w")
                 lbl_rol.grid(row=0, column=4, padx=8, pady=8, sticky="w")
-                lbl_rol.bind("<Button-1>", lambda e, c=cedula, n=nombre_completo, rf=row_frame: seleccionar_usuario(c, n, rf))
+                lbl_rol.bind("<Button-1>", lambda e, c=cedula, n=nombre_completo, rf=row_frame, ud=usuario_data: seleccionar_usuario(c, n, rf, ud))
 
-        # Funciones para los botones de acción
-        def _editar_usuario_seleccionado():
-            global usuario_seleccionado
-            if not usuario_seleccionado:
-                tk.messagebox.showwarning("Advertencia", "Por favor seleccione un usuario primero.")
-                return
-            
-            # Obtener datos completos del usuario seleccionado
-            try:
-                response = supabase.table("Usuario").select("*").eq("cedula", usuario_seleccionado['cedula']).execute()
-                if response.data:
-                    usuario_data = response.data[0]
-                    # Obtener nombres de departamento y rol
-                    deptos = obtener_departamentos()
-                    roles = obtener_roles()
-                    
-                    # Buscar nombres correspondientes a los IDs
-                    depto_nombre = next((k for k, v in deptos.items() if v == usuario_data.get('departamento')), 'Sin departamento')
-                    rol_nombre = next((k for k, v in roles.items() if v == usuario_data.get('rol')), 'Sin rol')
-                    
-                    datos_completos = {
-                        'nombre': usuario_data.get('nombre', ''),
-                        'apellido': usuario_data.get('apellido', ''),
-                        'departamento': depto_nombre,
-                        'rol': rol_nombre
-                    }
-                    
-                    editar_usuario(usuario_seleccionado['cedula'], datos_completos)
-                else:
-                    tk.messagebox.showerror("Error", "No se pudieron obtener los datos del usuario.")
-            except Exception as e:
-                tk.messagebox.showerror("Error", f"Error al obtener datos del usuario: {e}")
-
-        def _eliminar_usuario_seleccionado():
-            global usuario_seleccionado
-            if not usuario_seleccionado:
-                tk.messagebox.showwarning("Advertencia", "Por favor seleccione un usuario primero.")
-                return
-            
-            # Buscar el frame de la fila seleccionada
-            row_frame_seleccionado = None
-            for widget in scroll_frame.winfo_children():
-                if isinstance(widget, ctk.CTkFrame) and widget.cget("fg_color") == "#E0F2FE":
-                    row_frame_seleccionado = widget
-                    break
-            
-            eliminar_usuario(usuario_seleccionado['cedula'], usuario_seleccionado['nombre_completo'], row_frame_seleccionado)
-
-    except NameError:
-        ctk.CTkLabel(col_vacia_frame, text="Error: La función no se pudo ejecutar (posiblemente falta la importación de 'pandas').",
-                     text_color="red", font=ctk.CTkFont(size=14)).pack(pady=20, padx=20)
     except Exception as e:
-         ctk.CTkLabel(col_vacia_frame, text=f"Error al ejecutar la función: {e}",
+        ctk.CTkLabel(col_vacia_frame, text=f"Error al cargar usuarios: {e}",
                      text_color="red", font=ctk.CTkFont(size=14)).pack(pady=20, padx=20)
-    # --- FIN DEL BLOQUE DE CÓDIGO MEJORADO ---
 
-    # Resto del código del formulario permanece igual...
-    # Columna 1 (Derecha): Contiene el formulario
-    content_frame.grid_columnconfigure(1, weight=0) 
-
-    # Formulario central
+    # COLUMNA DERECHA - Formulario
     form_frame = ctk.CTkFrame(content_frame, fg_color="#FFFFFF", corner_radius=10)
     form_frame.grid(row=0, column=1, pady=20, padx=20, ipadx=20, ipady=20, sticky="n")
 
-    ctk.CTkLabel(form_frame, text="Complete los campos", font=ctk.CTkFont(size=16, weight="bold"), text_color="#1E3D8F").pack(pady=10)
+    ctk.CTkLabel(form_frame, text="Formulario de Usuario", 
+                 font=ctk.CTkFont(size=16, weight="bold"), text_color="#1E3D8F").pack(pady=10)
 
-    # Entradas de datos (Cédula, Nombre, Apellido)
+    # Entradas de datos
     registro_entries = {}
-    cedula_ent = ctk.CTkEntry(form_frame, placeholder_text="Cédula de Identidad", width=320, height=38, corner_radius=10, border_width=1, fg_color="white", border_color="#A1A1A1", text_color="black", font=ctk.CTkFont(size=14))
+    
+    # Cédula
+    cedula_ent = ctk.CTkEntry(form_frame, placeholder_text="Cédula de Identidad", width=320, height=38, 
+                             corner_radius=10, border_width=1, fg_color="white", border_color="#A1A1A1", 
+                             text_color="black", font=ctk.CTkFont(size=14))
     cedula_ent.pack(pady=(10, 8))
     registro_entries['cedula'] = cedula_ent
 
-    nombre_ent = ctk.CTkEntry(form_frame, placeholder_text="Nombre", width=320, height=38, corner_radius=10, border_width=1, fg_color="white", border_color="#A1A1A1", text_color="black", font=ctk.CTkFont(size=14))
+    nombre_ent = ctk.CTkEntry(form_frame, placeholder_text="Nombre", width=320, height=38, 
+                             corner_radius=10, border_width=1, fg_color="white", border_color="#A1A1A1", 
+                             text_color="black", font=ctk.CTkFont(size=14))
     nombre_ent.pack(pady=8)
     registro_entries['nombre'] = nombre_ent
 
-    apellido_ent = ctk.CTkEntry(form_frame, placeholder_text="Apellido", width=320, height=38, corner_radius=10, border_width=1, fg_color="white", border_color="#A1A1A1", text_color="black", font=ctk.CTkFont(size=14))
+    apellido_ent = ctk.CTkEntry(form_frame, placeholder_text="Apellido", width=320, height=38, 
+                               corner_radius=10, border_width=1, fg_color="white", border_color="#A1A1A1", 
+                               text_color="black", font=ctk.CTkFont(size=14))
     apellido_ent.pack(pady=8)
-    registro_entries['apellido'] = apellido_ent    
-    
-    # SELECTOR DE ROL CON BARRA DE DESPLAZAMIENTO MEJORADO (EL ROL NO TIENE MUCHOS ITEMS, SE MANTIENE EL COMBOBOX)
-    # ... (Código anterior de Cédula, Nombre, Apellido)
+    registro_entries['apellido'] = apellido_ent
 
-# ----------------------------------------------------
-# --- INICIO: SELECTOR DE ROL (MOVIDO ARRIBA) ---
-# ----------------------------------------------------
-    # SELECTOR DE ROL CON BARRA DE DESPLAZAMIENTO MEJORADO (EL ROL NO TIENE MUCHOS ITEMS, SE MANTIENE EL COMBOBOX)
+    # SELECTOR DE ROL
     ctk.CTkLabel(form_frame, text="Rol:", text_color="#1E1E1E").pack(pady=(10, 0))
-    
     rol_vals = rol_names if rol_names else ["-- Sin roles --"]
-
-    # Crear el ComboBox para roles
     rol_combo = ctk.CTkComboBox(
         form_frame, 
         values=rol_vals, 
         width=320,
         height=38,
-        dropdown_font=ctk.CTkFont(size=12),  # Tamaño más pequeño para más elementos
+        dropdown_font=ctk.CTkFont(size=12),
         dropdown_fg_color="white",
         dropdown_text_color="black",
         dropdown_hover_color="#E5E7EB",
         state="readonly"
     )
-
     if rol_names:
         default_rol = "usuario" if "usuario" in rol_names else rol_names[0]
         rol_combo.set(default_rol)
     else:
         rol_combo.set("-- Sin roles --")
-    rol_combo.pack(pady=(4, 15)) # Aumento el margen inferior a 15 para separarlo de Departamento
+    rol_combo.pack(pady=(4, 7))
     registro_entries['rol'] = rol_combo
-# ----------------------------------------------------
-# --- FIN: SELECTOR DE ROL ---
-# ----------------------------------------------------
 
-
-# ----------------------------------------------------
-# --- INICIO: REEMPLAZO DEL COMBOBOX DE DEPARTAMENTO (MOVIDO ABAJO) ---
-# ----------------------------------------------------
+    # SELECTOR DE DEPARTAMENTO
     ctk.CTkLabel(form_frame, text="Departamento:", text_color="#1E1E1E").pack(pady=(10, 0))
-
-    # 1. Entrada de texto para mostrar el valor (deshabilitada)
     depto_display = ctk.CTkEntry(form_frame, 
                                  placeholder_text="Seleccione un Departamento...", 
                                  width=320, 
@@ -1391,38 +1327,184 @@ def mostrar_pantalla_registro(root):
     depto_display.insert(0, departamento_names[0] if departamento_names else "-- Sin departamentos --")
     depto_display.configure(state="readonly")
     
-    # 2. Variable oculta para almacenar el nombre real (para el registro)
     depto_nombre_var = tk.StringVar(value=departamento_names[0] if departamento_names else "")
-    registro_entries['departamento'] = depto_nombre_var 
+    registro_entries['departamento'] = depto_nombre_var
 
-    # 3. Botón para abrir la ventana de búsqueda
     ctk.CTkButton(form_frame, text="Buscar/Seleccionar", 
                   width=320, height=30, 
                   fg_color="#3D89D1", hover_color="#1E3D8F",
                   font=ctk.CTkFont(size=12, weight="bold"),
-                  command=lambda: abrir_ventana_seleccion_depto(root, depto_display, depto_nombre_var)).pack(pady=(10, 19)) # Ajustado el pady superior a 4 para separar
-# ----------------------------------------------------
-# --- FIN: REEMPLAZO DEL COMBOBOX DE DEPARTAMENTO ---
-# ----------------------------------------------------
+                  command=lambda: abrir_ventana_seleccion_depto(root, depto_display, depto_nombre_var)).pack(pady=(6, 10))
+
+    # BOTÓN LIMPIAR (ubicado debajo de Buscar/Seleccionar y arriba de Guardar Usuario)
+    btn_limpiar = ctk.CTkButton(form_frame, text="🧹 LIMPIAR FORMULARIO", 
+                               fg_color="#6B7280", hover_color="#4B5563",
+                               font=ctk.CTkFont(size=13, weight="bold"),
+                               width=320, height=42,
+                               command=lambda: limpiar_formulario())
+    btn_limpiar.pack(pady=(15, 4))
 
 
-# ----------------------------------------------------
-# --- INICIO: BOTÓN REGISTRAR ---
-# ----------------------------------------------------
-    # Notificación de registro
+
+    # FUNCIONES AUXILIARES
+    def cargar_datos_formulario(usuario_data):
+        """Carga los datos del usuario seleccionado en el formulario"""
+        try:
+            # Cargar datos básicos
+            cedula_ent.delete(0, 'end')
+            cedula_ent.insert(0, usuario_data.get('cedula', ''))
+            
+            nombre_ent.delete(0, 'end')
+            nombre_ent.insert(0, usuario_data.get('nombre', ''))
+            
+            apellido_ent.delete(0, 'end')
+            apellido_ent.insert(0, usuario_data.get('apellido', ''))
+            
+            # Cargar departamento
+            depto_nombre = usuario_data.get('departamento', '')
+            if depto_nombre:
+                depto_display.configure(state="normal")
+                depto_display.delete(0, 'end')
+                depto_display.insert(0, depto_nombre)
+                depto_display.configure(state="readonly")
+                depto_nombre_var.set(depto_nombre)
+            
+            # Cargar rol
+            rol_nombre = usuario_data.get('rol', '')
+            if rol_nombre:
+                rol_combo.set(rol_nombre)
+            
+            registro_notificacion.configure(text="Datos cargados para edición", text_color="#16A34A")
+        except Exception as e:
+            registro_notificacion.configure(text=f"Error al cargar datos: {e}", text_color="#DC2626")
+
+    def limpiar_formulario():
+        """Limpia el formulario para crear un nuevo usuario"""
+        global usuario_seleccionado
+        usuario_seleccionado = None
+        
+        # Limpiar campos
+        cedula_ent.delete(0, 'end')
+        nombre_ent.delete(0, 'end')
+        apellido_ent.delete(0, 'end')
+        
+        # Resetear selectores
+        if rol_names:
+            default_rol = "usuario" if "usuario" in rol_names else rol_names[0]
+            rol_combo.set(default_rol)
+        
+        if departamento_names:
+            depto_display.configure(state="normal")
+            depto_display.delete(0, 'end')
+            depto_display.insert(0, departamento_names[0])
+            depto_display.configure(state="readonly")
+            depto_nombre_var.set(departamento_names[0])
+        
+        # Resetear selección en la lista
+        for widget in scroll_frame.winfo_children():
+            if isinstance(widget, ctk.CTkFrame):
+                index = scroll_frame.winfo_children().index(widget)
+                bg_color = "#FFFFFF" if index % 2 == 0 else "#F9FAFB"
+                widget.configure(fg_color=bg_color)
+        
+        seleccion_label.configure(text="Ningún usuario seleccionado", text_color="#6B7280")
+        registro_notificacion.configure(text="Formulario listo para nuevo usuario", text_color="#3D89D1")
+
+    # FUNCIÓN DE GUARDADO UNIFICADA
+    def guardar_usuario():
+        cedula_val = (registro_entries.get('cedula').get() or "").strip()
+        nombre_val = (registro_entries.get('nombre').get() or "").strip()
+        apellido_val = (registro_entries.get('apellido').get() or "").strip()
+        rol_nombre = (registro_entries.get('rol').get() or "").strip()
+        depto_nombre = (registro_entries.get('departamento').get() or "").strip()
+
+        # Validaciones
+        if not cedula_val or not nombre_val or not apellido_val:
+            _set_registro_notificacion("Faltan campos obligatorios (Cédula, Nombre, Apellido).", "orange")
+            return
+
+        if not cedula_val.isdigit() or len(cedula_val) < 4:
+            _set_registro_notificacion("Cédula inválida o muy corta.", "orange")
+            return
+
+        if rol_nombre not in roles_map or depto_nombre not in departamentos_map:
+            _set_registro_notificacion("Rol/Departamento no válido.", "red")
+            return
+
+        # Preparar datos
+        datos_usuario = {
+            'cedula': cedula_val,
+            'nombre': nombre_val,
+            'apellido': apellido_val,
+            'departamento': departamentos_map[depto_nombre],
+            'rol': roles_map[rol_nombre],
+        }
+
+
+
+
+        _set_registro_notificacion("Guardando usuario...", "#1E3D8F")
+
+        def tarea_guardado():
+            try:
+                # Verificar si es edición (usuario seleccionado existe)
+                if usuario_seleccionado and usuario_seleccionado['cedula'] == cedula_val:
+                    # MODO EDICIÓN: Actualizar usuario existente
+                    resp = supabase.table("Usuario").update(datos_usuario).eq("cedula", cedula_val).execute()
+                    mensaje_exito = "✓ Usuario actualizado con éxito!"
+                else:
+                    # MODO REGISTRO: Verificar que la cédula no exista
+                    dup_resp = supabase.table("Usuario").select("cedula").eq("cedula", cedula_val).execute()
+                    if dup_resp.data:
+                        _set_registro_notificacion("✗ Error: La cédula ya está registrada.", "red")
+                        return
+                    
+                    # Insertar nuevo usuario
+                    resp = supabase.table("Usuario").insert([datos_usuario]).execute()
+                    mensaje_exito = "✓ Usuario registrado con éxito!"
+
+                if resp.data:
+                    _set_registro_notificacion(mensaje_exito, "#16A34A")
+                    # Recargar la pantalla después de guardar
+                    root.after(1500, lambda: mostrar_pantalla_registro(root))
+                else:
+                    _set_registro_notificacion("✗ Error al guardar usuario.", "red")
+                    
+            except Exception as e:
+                print(f"Error al guardar usuario: {e}")
+                msg = str(e)
+                if "duplicate" in msg.lower():
+                    _set_registro_notificacion("✗ Error: La cédula ya existe.", "red")
+                else:
+                    _set_registro_notificacion(f"✗ Error: {msg[:80]}", "red")
+
+        threading.Thread(target=tarea_guardado, daemon=True).start()
+
+    # Botón de guardado unificado
+    ctk.CTkButton(form_frame, text="💾 GUARDAR USUARIO", fg_color="#16A34A", hover_color="#15803D",
+                  font=ctk.CTkFont(size=14, weight="bold"), width=320, height=42,
+                  command=guardar_usuario).pack(pady=(10, 6))
+        # Notificación
     global registro_notificacion
     registro_notificacion = ctk.CTkLabel(form_frame, text="", font=ctk.CTkFont(size=13, weight="bold"))
     registro_notificacion.pack(pady=8)
 
-    def _on_registrar():
-        deps = obtener_departamentos()
-        roles = obtener_roles()
-        threading.Thread(target=registrar_usuario, args=(root, roles, deps), daemon=True).start()
+    # FUNCIONES PARA LOS BOTONES DE LA LISTA
+    def _eliminar_usuario_seleccionado():
+        global usuario_seleccionado
+        if not usuario_seleccionado:
+            tk.messagebox.showwarning("Advertencia", "Por favor seleccione un usuario primero.")
+            return
+        
+        row_frame_seleccionado = None
+        for widget in scroll_frame.winfo_children():
+            if isinstance(widget, ctk.CTkFrame) and widget.cget("fg_color") == "#E0F2FE":
+                row_frame_seleccionado = widget
+                break
+        
+        eliminar_usuario(usuario_seleccionado['cedula'], usuario_seleccionado['nombre_completo'], row_frame_seleccionado)
 
-    # Botón REGISTRAR
-    ctk.CTkButton(form_frame, text="REGISTRAR", fg_color="#16A34A", hover_color="#15803D",
-                  font=ctk.CTkFont(size=14, weight="bold"), width=320, height=42,
-                  command=_on_registrar).pack(pady=(10, 6))
+
 # ----------------------------------------------------
 # --- FIN: BOTÓN REGISTRAR ---
 # ----------------------------------------------------
