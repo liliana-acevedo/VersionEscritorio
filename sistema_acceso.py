@@ -355,9 +355,9 @@ def editar_usuario(cedula, usuario_data):
     campos['rol'] = rol_combo
     
     # Notificación compacta
-    notificacion = ctk.CTkLabel(content_frame, text="", 
-                                 font=ctk.CTkFont(size=11, weight="bold"))
-    notificacion.pack(pady=(8, 10))
+    #notificacion = ctk.CTkLabel(content_frame, text="", 
+     #                            font=ctk.CTkFont(size=11, weight="bold"))
+    #notificacion.pack(pady=(8, 10))
     
     def _actualizar_seguro(datos_actualizados, cedula_int):
         """Función segura para actualizar en hilo separado"""
@@ -668,7 +668,7 @@ def mostrar_pantalla_departamentos(root):
 
     eliminar_btn = ctk.CTkButton(
         actions,
-        text="🗑️ ELIMINAR",
+        text="ELIMINAR",
         fg_color="#DC2626",
         hover_color="#B91C1C",
         width=110,
@@ -1126,7 +1126,7 @@ def mostrar_pantalla_registro(root):
         botones_superior_frame.pack(fill="x", padx=20, pady=(0, 10))
         
         # Botón Eliminar
-        btn_eliminar_superior = ctk.CTkButton(botones_superior_frame, text="🗑️ ELIMINAR", 
+        btn_eliminar_superior = ctk.CTkButton(botones_superior_frame, text="ELIMINAR", 
                                              fg_color="#DC2626", hover_color="#B91C1C",
                                              font=ctk.CTkFont(size=13, weight="bold"),
                                              width=120, height=35,
@@ -1358,7 +1358,7 @@ def mostrar_pantalla_registro(root):
                   command=lambda: abrir_ventana_seleccion_depto(root, depto_display, depto_nombre_var)).pack(pady=(6, 10))
 
     # BOTÓN LIMPIAR (ubicado debajo de Buscar/Seleccionar y arriba de Guardar Usuario)
-    btn_limpiar = ctk.CTkButton(form_frame, text="🧹 LIMPIAR FORMULARIO", 
+    btn_limpiar = ctk.CTkButton(form_frame, text="CANCELAR", 
                                fg_color="#6B7280", hover_color="#4B5563",
                                font=ctk.CTkFont(size=13, weight="bold"),
                                width=320, height=42,
@@ -1502,13 +1502,13 @@ def mostrar_pantalla_registro(root):
         threading.Thread(target=tarea_guardado, daemon=True).start()
 
     # Botón de guardado unificado
-    ctk.CTkButton(form_frame, text="💾 GUARDAR USUARIO", fg_color="#16A34A", hover_color="#15803D",
+    ctk.CTkButton(form_frame, text="GUARDAR USUARIO", fg_color="#16A34A", hover_color="#15803D",
                   font=ctk.CTkFont(size=14, weight="bold"), width=320, height=42,
                   command=guardar_usuario).pack(pady=(10, 6))
         # Notificación
-    global registro_notificacion
-    registro_notificacion = ctk.CTkLabel(form_frame, text="", font=ctk.CTkFont(size=13, weight="bold"))
-    registro_notificacion.pack(pady=8)
+    #global registro_notificacion
+    #registro_notificacion = ctk.CTkLabel(form_frame, text="", font=ctk.CTkFont(size=13, weight="bold"))
+    #registro_notificacion.pack(pady=8)
 
     # FUNCIONES PARA LOS BOTONES DE LA LISTA
     def _eliminar_usuario_seleccionado():
