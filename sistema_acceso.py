@@ -1535,6 +1535,12 @@ def mostrar_pantalla_registro(root):
 
 
 
+
+
+
+
+
+
 # PANTALLA PRINCIPAL (Lista de Servicios) 
 def mostrar_pantalla_principal(root):
     _clear_widgets(root)
@@ -1796,10 +1802,6 @@ def mostrar_pantalla_principal(root):
 
 
 
-
-
-
-
     def renderizar_servicios():
         """
         Limpia el scrollable y renderiza las nuevas tarjetas de servicio.
@@ -1885,9 +1887,11 @@ def mostrar_pantalla_principal(root):
                     # 2. Encabezado (Azul)
                     header_frame = ctk.CTkFrame(card_main, fg_color=COLOR_HEADER_BG, corner_radius=0)
                     header_frame.grid(row=0, column=0, sticky="ew")
+                    titulo_val1 = (s.get('descripcion') or "Sin descripción").capitalize()
+
                     ctk.CTkLabel(
                         header_frame, 
-                        text=f" SERVICIO #{s.get('id_servicio')}", 
+                        text=f" SERVICIO #{s.get('id_servicio')} |  {titulo_val1}", 
                         font=FONT_HEADER, 
                         text_color=COLOR_HEADER_TEXT,
                         anchor="w"
@@ -1908,11 +1912,11 @@ def mostrar_pantalla_principal(root):
                     details_frame.grid(row=0, column=0, sticky="nsew")
 
                     # --- Título (CON TEXT-WRAPPING) ---
-                    titulo_val = (s.get('descripcion') or "Sin descripción").capitalize()
+                    #titulo_val = (s.get('descripcion') or "Sin descripción").capitalize()
                         
                     ctk.CTkLabel(
                         details_frame, 
-                        text=titulo_val, 
+                        text=  "",#titulo_val, 
                         font=FONT_TITLE, 
                         text_color=COLOR_TITLE_TEXT, 
                         anchor="w",
@@ -2040,6 +2044,14 @@ def mostrar_pantalla_principal(root):
         threading.Thread(target=tarea, daemon=True).start()
         
         
+       
+       
+       
+       
+       
+       
+       
+       
         
         
     
