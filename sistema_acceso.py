@@ -505,9 +505,9 @@ def abrir_ventana_seleccion_depto(root, display_entry, nombre_var):
     ventana.grab_set()
     ventana.focus_force()
     ventana.geometry("500x500") # Tamaño fijo para la búsqueda
+    ventana.resizable(False, False) # Evitar que se redimensione
     
     contenido = ctk.CTkFrame(ventana, fg_color="#FFFFFF")
-    # EXPANDIR: Quitamos el padding vertical para que el contenido se ajuste al borde.
     contenido.pack(padx=20, pady=20, fill="both", expand=True) 
     contenido.grid_columnconfigure(0, weight=1)
 
@@ -516,15 +516,13 @@ def abrir_ventana_seleccion_depto(root, display_entry, nombre_var):
     search_entry = ctk.CTkEntry(contenido, placeholder_text="Escriba para buscar...", width=450, height=35)
     search_entry.grid(row=1, column=0, pady=(0, 10), sticky="ew")
     
-    # --- MODIFICACIÓN CLAVE: SCROLLABLE FRAME EXPANDIDO ---
-    scroll_frame = ctk.CTkScrollableFrame(contenido, fg_color="#F9FAFB", label_text_color="black")
-    # Usamos sticky="nsew" y pady=(0, 0) para que ocupe el espacio restante.
+    # Scrollable Frame expandido
+    scroll_frame = ctk.CTkScrollableFrame(contenido, fg_color="#F9FAFB")
     scroll_frame.grid(row=2, column=0, sticky="nsew", pady=(0, 0)) 
     scroll_frame.grid_columnconfigure(0, weight=1)
     
-    # Configuramos la columna 0 del contenido principal para que la lista crezca
-    contenido.grid_rowconfigure(2, weight=1) # <-- Hace que la fila 2 (scroll_frame) tome todo el espacio.
-    # ----------------------------------------------------
+    # Configurar la fila 2 para que tome todo el espacio disponible
+    contenido.grid_rowconfigure(2, weight=1)
 
     def seleccionar_depto(nombre):
         display_entry.configure(state="normal")
@@ -533,46 +531,69 @@ def abrir_ventana_seleccion_depto(root, display_entry, nombre_var):
         display_entry.configure(state="readonly")
         nombre_var.set(nombre)
         ventana.destroy()
-    
-    # ... (El resto de las funciones render_list y filtrar_lista permanecen igual)
 
     def render_list(filtro=""):
+        # Limpiar widgets anteriores
         for widget in scroll_frame.winfo_children():
             widget.destroy()
         
-        filtro_lower = filtro.lower()
+        filtro_lower = filtro.lower().strip()
+        deptos_filtrados = []
         
-        for i, nombre in enumerate(all_deptos):
-            if not filtro or filtro_lower in nombre.lower():
-                # Usamos un botón para que sea más claro el click
-                btn = ctk.CTkButton(
-                    scroll_frame, 
-                    text=nombre, 
-                    fg_color="transparent", 
-                    hover_color="#E0F2FE", 
-                    text_color="black", 
-                    corner_radius=0, 
-                    anchor="w",
-                    command=lambda n=nombre: seleccionar_depto(n)
-                )
-                btn.grid(row=i, column=0, sticky="ew", pady=(1, 1))
+        # FILTRO CORREGIDO: Solo departamentos que COMIENZAN con el texto buscado
+        if filtro_lower:
+            deptos_filtrados = [nombre for nombre in all_deptos if nombre.lower().startswith(filtro_lower)]
+        else:
+            deptos_filtrados = all_deptos
+        
+        # Mostrar mensaje si no hay resultados
+        if not deptos_filtrados:
+            lbl = ctk.CTkLabel(
+                scroll_frame, 
+                text="No se encontraron departamentos",
+                text_color="#6B7280",
+                font=ctk.CTkFont(size=12)
+            )
+            lbl.grid(row=0, column=0, sticky="ew", pady=10)
+            return
+        
+        # Renderizar departamentos filtrados
+        for i, nombre in enumerate(deptos_filtrados):
+            btn = ctk.CTkButton(
+                scroll_frame, 
+                text=nombre, 
+                fg_color="transparent", 
+                hover_color="#E0F2FE", 
+                text_color="black", 
+                corner_radius=0, 
+                anchor="w",
+                command=lambda n=nombre: seleccionar_depto(n)
+            )
+            btn.grid(row=i, column=0, sticky="ew", pady=(1, 1))
 
-    def filtrar_lista(e):
-        render_list(search_entry.get())
+    def filtrar_lista(event=None):
+        texto_busqueda = search_entry.get()
+        render_list(texto_busqueda)
         
+    # Vincular evento de teclado para búsqueda en tiempo real
     search_entry.bind("<KeyRelease>", filtrar_lista)
-    render_list() # Cargar la lista inicial
     
-    # *** ELIMINACIÓN DEL BOTÓN CANCELAR ***
-    # La línea que definía el botón de Cancelar ha sido eliminada.
-    # *** ELIMINACIÓN DEL BOTÓN CANCELAR ***
+    # Enfocar el campo de búsqueda automáticamente
+    search_entry.focus_set()
     
-
+    # Cargar la lista inicial
+    render_list()
     
     # Botón de Cancelar
-    ctk.CTkButton(contenido, text="CANCELAR", fg_color="#6B7280", hover_color="#4B5563", width=150, height=35, command=ventana.destroy).grid(row=3, column=0, pady=(10, 0))
-# --- FIN: FUNCIÓN MOVIDA FUERA DE mostrar_pantalla_registro ---
-
+    ctk.CTkButton(
+        contenido, 
+        text="CANCELAR", 
+        fg_color="#6B7280", 
+        hover_color="#4B5563", 
+        width=150, 
+        height=35, 
+        command=ventana.destroy
+    ).grid(row=3, column=0, pady=(10, 0))
 
 
 # PANTALLA: AGREGAR NUEVO DEPARTAMENTO
