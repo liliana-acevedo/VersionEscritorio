@@ -240,7 +240,7 @@ def mostrar_pantalla_graficos(root, funcion_volver):
     header_frame.grid_columnconfigure(1, weight=1) 
     header_frame.grid_columnconfigure(2, weight=0) 
 
-    ctk.CTkLabel(header_frame, text="Análisis de servicios",
+    ctk.CTkLabel(header_frame, text="ANÁLISIS DE SERVICIOS",
                  font=ctk.CTkFont(size=22, weight="bold"),
                  text_color="white").grid(row=0, column=1, padx=(30, 20), pady=15, sticky="w")
 
