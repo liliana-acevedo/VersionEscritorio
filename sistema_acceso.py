@@ -2036,7 +2036,7 @@ def mostrar_pantalla_principal(root):
         ventana = ctk.CTkToplevel(root)
         ventana.title("Filtrar por Departamento")
         ventana.configure(fg_color="#F7F9FB")
-        ventana.geometry("600x600") 
+        ventana.geometry("580x600") 
         ventana.grab_set()
         ventana.focus_force()
         ventana.resizable(False, False)
