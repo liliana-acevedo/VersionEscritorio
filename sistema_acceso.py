@@ -444,7 +444,7 @@ def mostrar_pantalla_departamentos(root):
 
     def on_guardar():
         # ... (El contenido de esta función on_guardar NO cambia, mantenlo igual) ...
-        nombre = depto_entry.get().strip()
+        nombre = depto_entry.get().strip().upper()
         if not nombre:
             depto_notificacion.configure(text="Ingrese un nombre válido.", text_color="orange")
             return
@@ -935,8 +935,8 @@ def mostrar_pantalla_registro(root):
                 row_frame.grid_columnconfigure(3, weight=1, minsize=350)
                 row_frame.grid_columnconfigure(4, weight=0, minsize=120)
 
-                nombre = str(row.get('nombre', '')).strip()
-                apellido = str(row.get('apellido', '')).strip()
+                nombre = str(row.get('nombre', '')).strip().upper()
+                apellido = str(row.get('apellido', '')).strip().upper()
                 cedula = str(row['cedula'])
                 departamento = str(row.get('departamento', 'Sin departamento')).strip()
                 rol = str(row.get('rol', 'Sin rol')).strip()
@@ -1137,71 +1137,158 @@ def mostrar_pantalla_registro(root):
 
     # --- LÓGICA DE GUARDADO (Pegar esto debajo del botón Cancelar) ---
 
+    # --- REEMPLAZA TU FUNCIÓN guardar_usuario POR ESTA ---
     def guardar_usuario():
+        # 1. Obtener valores del formulario
         cedula_val = (registro_entries.get('cedula').get() or "").strip()
         nombre_val = (registro_entries.get('nombre').get() or "").strip()
         apellido_val = (registro_entries.get('apellido').get() or "").strip()
         rol_nombre = (registro_entries.get('rol').get() or "").strip()
         depto_nombre = (registro_entries.get('departamento').get() or "").strip()
 
-        # Validaciones
+        # 2. Validaciones (Igual que antes)
         if not cedula_val or not nombre_val or not apellido_val:
             _set_registro_notificacion("Faltan campos obligatorios.", "orange")
             return
-
         if not cedula_val.isdigit() or len(cedula_val) < 4:
             _set_registro_notificacion("Cédula inválida o muy corta.", "orange")
             return
-
         if rol_nombre not in roles_map or depto_nombre not in departamentos_map:
             _set_registro_notificacion("Rol/Departamento no válido.", "red")
             return
 
-        # Preparar datos
-        datos_usuario = {
-            'cedula': cedula_val,
+        # 3. Datos para la Base de Datos (IDs)
+        datos_db = {
+            'cedula': int(cedula_val),
             'nombre': nombre_val,
             'apellido': apellido_val,
-            'departamento': departamentos_map[depto_nombre],
-            'rol': roles_map[rol_nombre],
+            'departamento': departamentos_map[depto_nombre], # Envía el ID
+            'rol': roles_map[rol_nombre],                  # Envía el ID
         }
-        _set_registro_notificacion("Guardando usuario...", "#1E3D8F")
 
+        # 4. Datos para la Interfaz Visual (Textos)
+        # Usamos upper() para cumplir con tu requerimiento anterior
+        datos_visuales = {
+            'cedula': cedula_val,
+            'nombre': nombre_val.upper(),
+            'apellido': apellido_val.upper(),
+            'departamento': depto_nombre, # Texto real
+            'rol': rol_nombre             # Texto real
+        }
+
+        _set_registro_notificacion("Procesando...", "#1E3D8F")
+
+        # Función interna para actualizar la UI inmediatamente (Thread Principal)
+        def actualizar_ui_inmediata(es_edicion):
+            try:
+                # --- CASO 1: EDITAR USUARIO EXISTENTE ---
+                if es_edicion and usuario_seleccionado:
+                    row = usuario_seleccionado['row_frame']
+                    
+                    # Actualizar etiquetas visuales (hijos del frame)
+                    # El orden de creación fue: Nombre(0), Apellido(1), Cédula(2), Depto(3), Rol(4)
+                    widgets = row.winfo_children()
+                    if len(widgets) >= 5:
+                        widgets[0].configure(text=datos_visuales['nombre'])
+                        widgets[1].configure(text=datos_visuales['apellido'])
+                        widgets[2].configure(text=datos_visuales['cedula'])
+                        widgets[3].configure(text=datos_visuales['departamento'])
+                        widgets[4].configure(text=datos_visuales['rol'])
+                    
+                    # Actualizar datos en memoria del usuario seleccionado
+                    usuario_seleccionado['nombre_completo'] = f"{datos_visuales['nombre']} {datos_visuales['apellido']}"
+                    usuario_seleccionado['data'].update(datos_visuales)
+                    
+                    # Actualizar badge de selección
+                    seleccion_label.configure(text=f"SELECCIONADO: {usuario_seleccionado['nombre_completo']}")
+                    
+                    _set_registro_notificacion("✓ Usuario actualizado (Vista actualizada)", "#16A34A")
+
+                # --- CASO 2: AGREGAR NUEVO USUARIO ---
+                else:
+                    # Crear nueva fila visualmente
+                    # Determinamos color alterno simple
+                    count = len(scroll_frame.winfo_children())
+                    bg_color = "#FFFFFF" if count % 2 == 0 else "#F9FAFB"
+                    
+                    new_row = ctk.CTkFrame(scroll_frame, fg_color=bg_color, corner_radius=0, height=35)
+                    new_row.pack(fill="x")
+                    
+                    # Configurar columnas (Mismas que en el bucle principal)
+                    new_row.grid_columnconfigure(0, weight=0, minsize=120)
+                    new_row.grid_columnconfigure(1, weight=0, minsize=120)
+                    new_row.grid_columnconfigure(2, weight=0, minsize=100)
+                    new_row.grid_columnconfigure(3, weight=1, minsize=350)
+                    new_row.grid_columnconfigure(4, weight=0, minsize=120)
+                    
+                    # Text Styles
+                    font_std = ctk.CTkFont(size=13)
+                    color_std = "#374151"
+                    
+                    # Crear Etiquetas
+                    lbl_nom = ctk.CTkLabel(new_row, text=datos_visuales['nombre'], font=font_std, text_color=color_std, anchor="w")
+                    lbl_ape = ctk.CTkLabel(new_row, text=datos_visuales['apellido'], font=font_std, text_color=color_std, anchor="w")
+                    lbl_ced = ctk.CTkLabel(new_row, text=datos_visuales['cedula'], font=font_std, text_color=color_std, anchor="w")
+                    lbl_dep = ctk.CTkLabel(new_row, text=datos_visuales['departamento'], font=font_std, text_color=color_std, anchor="w")
+                    lbl_rol = ctk.CTkLabel(new_row, text=datos_visuales['rol'], font=font_std, text_color=color_std, anchor="w")
+                    
+                    lbl_nom.grid(row=0, column=0, padx=8, pady=8, sticky="w")
+                    lbl_ape.grid(row=0, column=1, padx=8, pady=8, sticky="w")
+                    lbl_ced.grid(row=0, column=2, padx=8, pady=8, sticky="w")
+                    lbl_dep.grid(row=0, column=3, padx=8, pady=8, sticky="w")
+                    lbl_rol.grid(row=0, column=4, padx=8, pady=8, sticky="w")
+                    
+                    # DATA para bindear
+                    nombre_completo = f"{datos_visuales['nombre']} {datos_visuales['apellido']}"
+                    
+                    # Bindings (Clicks) para poder editar este nuevo usuario sin recargar
+                    def bind_click(widget):
+                        widget.bind("<Button-1>", lambda e, c=datos_visuales['cedula'], n=nombre_completo, rf=new_row, ud=datos_visuales: seleccionar_usuario(c, n, rf, ud))
+                    
+                    bind_click(new_row)
+                    bind_click(lbl_nom)
+                    bind_click(lbl_ape)
+                    bind_click(lbl_ced)
+                    bind_click(lbl_dep)
+                    bind_click(lbl_rol)
+                    
+                    _set_registro_notificacion("✓ Usuario registrado (Tabla actualizada)", "#16A34A")
+                    
+                    # Limpiar formulario tras registro exitoso
+                    limpiar_formulario()
+
+            except Exception as e:
+                print(f"Error actualizando UI: {e}")
+                _set_registro_notificacion("Datos guardados, pero error visual (recargue)", "orange")
+
+        # 5. Hilo de Base de Datos (Supabase)
         def tarea_guardado():
             try:
-                # Verificar si es edición (usuario seleccionado existe)
-                if usuario_seleccionado and usuario_seleccionado['cedula'] == cedula_val:
-                    # MODO EDICIÓN: Actualizar usuario existente
-                    resp = supabase.table("Usuario").update(datos_usuario).eq("cedula", cedula_val).execute()
-                    mensaje_exito = "✓ Usuario actualizado con éxito!"
+                es_edicion = False
+                if usuario_seleccionado and str(usuario_seleccionado['cedula']) == str(cedula_val):
+                    es_edicion = True
+                    # Update DB
+                    resp = supabase.table("Usuario").update(datos_db).eq("cedula", int(cedula_val)).execute()
                 else:
-                    # MODO REGISTRO: Verificar duplicado
-                    dup_resp = supabase.table("Usuario").select("cedula").eq("cedula", cedula_val).execute()
-                    if dup_resp.data:
-                        _set_registro_notificacion("✗ Error: La cédula ya está registrada.", "red")
+                    # Insert DB - Primero verificar duplicado
+                    dup = supabase.table("Usuario").select("cedula").eq("cedula", int(cedula_val)).execute()
+                    if dup.data:
+                        _set_registro_notificacion("Error: Cédula ya existe.", "red")
                         return
-                    
-                    # Insertar nuevo usuario
-                    resp = supabase.table("Usuario").insert([datos_usuario]).execute()
-                    mensaje_exito = "✓ Usuario registrado con éxito!"
+                    resp = supabase.table("Usuario").insert(datos_db).execute()
 
                 if resp.data:
-                    _set_registro_notificacion(mensaje_exito, "#16A34A")
-                    # Recargar la pantalla después de guardar
-                    root.after(1500, lambda: mostrar_pantalla_registro(root))
+                    # SI FUE EXITOSO EN BD, ACTUALIZAMOS LA UI
+                    app_root.after(0, lambda: actualizar_ui_inmediata(es_edicion))
                 else:
-                    _set_registro_notificacion("✗ Error al guardar usuario.", "red")
-                    
+                    _set_registro_notificacion("Error al guardar en base de datos.", "red")
+
             except Exception as e:
-                print(f"Error al guardar usuario: {e}")
                 msg = str(e)
-                if "duplicate" in msg.lower():
-                    _set_registro_notificacion("✗ Error: La cédula ya existe.", "red")
-                else:
-                    _set_registro_notificacion(f"✗ Error: {msg[:80]}", "red")
+                print("Error DB:", msg)
+                _set_registro_notificacion("Error de conexión o base de datos.", "red")
 
         threading.Thread(target=tarea_guardado, daemon=True).start()
-
     # --- BOTÓN GUARDAR (Con el NUEVO diseño ancho) ---
     ctk.CTkButton(
         form_frame, 
@@ -1212,6 +1299,17 @@ def mostrar_pantalla_registro(root):
         height=42,
         command=guardar_usuario     # Llama a la función que acabamos de definir arriba
     ).pack(pady=(0, 6))
+
+    global registro_notificacion # Aseguramos referenciar la variable global
+    
+    registro_notificacion = ctk.CTkLabel(
+        form_frame, 
+        text="", 
+        font=ctk.CTkFont(size=12, weight="bold"),
+        text_color="#DC2626", # Color rojo por defecto para errores
+        wraplength=ANCHO_INPUT # Para que el texto baje de línea si es muy largo
+    )
+    registro_notificacion.pack(pady=(5, 15))
 
     # --- FIN DEL FORMULARIO CORREGIDO ---
     
@@ -1279,71 +1377,6 @@ def mostrar_pantalla_registro(root):
         registro_notificacion.configure(text="Formulario listo para nuevo usuario", text_color="#3D89D1")
 
     # FUNCIÓN DE GUARDADO UNIFICADA
-    def guardar_usuario():
-        cedula_val = (registro_entries.get('cedula').get() or "").strip()
-        nombre_val = (registro_entries.get('nombre').get() or "").strip()
-        apellido_val = (registro_entries.get('apellido').get() or "").strip()
-        rol_nombre = (registro_entries.get('rol').get() or "").strip()
-        depto_nombre = (registro_entries.get('departamento').get() or "").strip()
-
-        # Validaciones
-        if not cedula_val or not nombre_val or not apellido_val:
-            _set_registro_notificacion("Faltan campos obligatorios (Cédula, Nombre, Apellido).", "orange")
-            return
-
-        if not cedula_val.isdigit() or len(cedula_val) < 4:
-            _set_registro_notificacion("Cédula inválida o muy corta.", "orange")
-            return
-
-        if rol_nombre not in roles_map or depto_nombre not in departamentos_map:
-            _set_registro_notificacion("Rol/Departamento no válido.", "red")
-            return
-
-        # Preparar datos
-        datos_usuario = {
-            'cedula': cedula_val,
-            'nombre': nombre_val,
-            'apellido': apellido_val,
-            'departamento': departamentos_map[depto_nombre],
-            'rol': roles_map[rol_nombre],
-        }
-        _set_registro_notificacion("Guardando usuario...", "#1E3D8F")
-
-        def tarea_guardado():
-            try:
-                # Verificar si es edición (usuario seleccionado existe)
-                if usuario_seleccionado and usuario_seleccionado['cedula'] == cedula_val:
-                    # MODO EDICIÓN: Actualizar usuario existente
-                    resp = supabase.table("Usuario").update(datos_usuario).eq("cedula", cedula_val).execute()
-                    mensaje_exito = "✓ Usuario actualizado con éxito!"
-                else:
-                    # MODO REGISTRO: Verificar que la cédula no exista
-                    dup_resp = supabase.table("Usuario").select("cedula").eq("cedula", cedula_val).execute()
-                    if dup_resp.data:
-                        _set_registro_notificacion("✗ Error: La cédula ya está registrada.", "red")
-                        return
-                    
-                    # Insertar nuevo usuario
-                    resp = supabase.table("Usuario").insert([datos_usuario]).execute()
-                    mensaje_exito = "✓ Usuario registrado con éxito!"
-
-                if resp.data:
-                    _set_registro_notificacion(mensaje_exito, "#16A34A")
-                    # Recargar la pantalla después de guardar
-                    root.after(1500, lambda: mostrar_pantalla_registro(root))
-                else:
-                    _set_registro_notificacion("✗ Error al guardar usuario.", "red")
-                    
-            except Exception as e:
-                print(f"Error al guardar usuario: {e}")
-                msg = str(e)
-                if "duplicate" in msg.lower():
-                    _set_registro_notificacion("✗ Error: La cédula ya existe.", "red")
-                else:
-                    _set_registro_notificacion(f"✗ Error: {msg[:80]}", "red")
-
-        threading.Thread(target=tarea_guardado, daemon=True).start()
-
     
     
     def _eliminar_usuario_seleccionado():
