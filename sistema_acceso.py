@@ -1000,7 +1000,7 @@ def mostrar_pantalla_registro(root):
     # --- INICIO DEL FORMULARIO CORREGIDO (mostrar_pantalla_registro) ---
     
     form_frame = ctk.CTkFrame(content_frame, fg_color="#FFFFFF", corner_radius=10)
-    form_frame.grid(row=0, column=1, pady=20, padx=20, ipadx=20, ipady=20, sticky="n")
+    form_frame.grid(row=0, column=1, pady=10, padx=20, ipadx=20, ipady=20, sticky="n")
 
     # Título del formulario
     ctk.CTkLabel(form_frame, text="FORMULARIO DE USUARIO", 
