@@ -1998,143 +1998,221 @@ def mostrar_pantalla_principal(root):
         # Inicia el hilo de exportación
         threading.Thread(target=tarea_exportar, daemon=True).start()
 
-    def abrir_ventana_seleccionar_tecnico():
-        
+    def abrir_ventana_filtrar_departamento():
+        # Crear la ventana emergente
         ventana = ctk.CTkToplevel(root)
-        ventana.title("Seleccionar Técnico")
+        ventana.title("Filtrar por Departamento")
         ventana.configure(fg_color="#F7F9FB")
+        ventana.geometry("900x600") 
         ventana.grab_set()
         ventana.focus_force()
         ventana.resizable(False, False)
         
+        # Variable para guardar selección
+        seleccion_temp = {"id": None, "nombre": None, "widget": None}
+
+        # --- UI ---
         contenido = ctk.CTkFrame(ventana, fg_color="#FFFFFF")
         contenido.pack(padx=20, pady=20, fill="both", expand=True)
+        contenido.grid_columnconfigure(0, weight=1)
+        contenido.grid_rowconfigure(2, weight=1) 
 
-        ctk.CTkLabel(contenido, text="Seleccione un Técnico", font=ctk.CTkFont(size=18, weight="bold"), text_color="#0C4A6E").pack(pady=(10, 15))
-
-        tecnicos_map = {}
+        # Título
+        ctk.CTkLabel(contenido, text="Buscar Departamento", 
+                     font=ctk.CTkFont(size=18, weight="bold"), 
+                     text_color="#0C4A6E").grid(row=0, column=0, pady=(15, 10), sticky="w", padx=20)
         
-        combo = ctk.CTkComboBox(
-            contenido, 
-            values=["Cargando..."],
-            width=300,
-            height=35
-        )
-        combo.pack(pady=10, padx=10)
+        # Barra de búsqueda
+        search_entry = ctk.CTkEntry(contenido, placeholder_text="Escriba la inicial...", 
+                                   height=40, border_color="#A1A1A1")
+        search_entry.grid(row=1, column=0, pady=(0, 15), padx=20, sticky="ew")
+        
+        # Frame con Scroll
+        scroll_frame = ctk.CTkScrollableFrame(contenido, fg_color="#F9FAFB")
+        scroll_frame.grid(row=2, column=0, sticky="nsew", padx=20, pady=(0, 10)) 
+        scroll_frame.grid_columnconfigure(0, weight=1)
 
-        def _cargar_tecnicos():
-            try:
-                resp = supabase.table("Usuario").select("cedula, nombre, apellido").eq("rol", 1).order("nombre").execute()
-                
-                tecnicos = resp.data or []
-                
-                if not tecnicos:
-                    root.after(0, lambda: combo.configure(values=["-- No hay técnicos --"]))
-                    return
-                
-                tecnicos_map.clear()
-                display_names = []
-                
-                for u in tecnicos:
-                    nombre = f"{u.get('nombre') or ''} {u.get('apellido') or ''}".strip()
-                    cedula = u.get('cedula')
-                    if not nombre: nombre = f"Técnico ({cedula})"
+        # Obtener datos
+        deptos_map = obtener_departamentos() 
+        all_nombres = sorted(list(deptos_map.keys()))
+
+        # --- MEJORA 1: SELECCIÓN DE ALTO CONTRASTE ---
+        def seleccionar_item(nombre, idd, btn_widget):
+            # 1. Restaurar el anterior (si existe) a estilo normal
+            if seleccion_temp["widget"] and seleccion_temp["widget"].winfo_exists():
+                seleccion_temp["widget"].configure(fg_color="transparent", text_color="black")
+            
+            # 2. Guardar nueva selección
+            seleccion_temp["id"] = idd
+            seleccion_temp["nombre"] = nombre
+            seleccion_temp["widget"] = btn_widget
+            
+            # 3. Aplicar estilo "SELECCIONADO" (Fondo Azul Oscuro + Letra Blanca)
+            btn_widget.configure(fg_color="#0C4A6E", text_color="white")
+
+        # --- MEJORA 2: BÚSQUEDA POR INICIAL (STARTSWITH) ---
+        def render_lista(filtro=""):
+            # Limpiar lista actual
+            for w in scroll_frame.winfo_children():
+                w.destroy()
+            
+            texto_busqueda = filtro.lower().strip()
+            
+            encontrados = False
+            for nombre in all_nombres:
+                # AQUI ESTÁ EL CAMBIO: startswith en vez de in
+                if not texto_busqueda or nombre.lower().startswith(texto_busqueda):
+                    encontrados = True
+                    idd = deptos_map[nombre]
                     
-                    display = f"{nombre} ({cedula})"
-                    tecnicos_map[display] = cedula
-                    display_names.append(display)
-                
-                root.after(0, lambda: combo.configure(values=display_names))
-                root.after(0, lambda: combo.set(display_names[0]))
-                
-            except Exception as e:
-                print(f"Error cargando técnicos: {e}")
-                root.after(0, lambda: combo.configure(values=["-- Error al cargar --"]))
+                    # Verificar si este es el que ya estaba seleccionado (para mantener el color si filtramos)
+                    es_seleccionado = (idd == seleccion_temp["id"])
+                    bg_color = "#0C4A6E" if es_seleccionado else "transparent"
+                    fg_txt = "white" if es_seleccionado else "black"
 
-        def _aplicar():
-            display_seleccionado = combo.get()
-            id_tecnico = tecnicos_map.get(display_seleccionado)
+                    btn = ctk.CTkButton(
+                        scroll_frame, 
+                        text=nombre, 
+                        fg_color=bg_color,      # Color dinámico
+                        text_color=fg_txt,      # Color dinámico
+                        hover_color="#3D89D1",  # Hover azul intermedio
+                        anchor="w",
+                        height=40,
+                        font=ctk.CTkFont(size=13),
+                        command=None 
+                    )
+                    # Asignar comando
+                    btn.configure(command=lambda n=nombre, i=idd, b=btn: seleccionar_item(n, i, b))
+                    btn.pack(fill="x", pady=1)
+                    
+                    # Si era el seleccionado, actualizamos la referencia del widget
+                    if es_seleccionado:
+                        seleccion_temp["widget"] = btn
             
-            if id_tecnico:
-                filtros_especiales['tecnico_id'] = id_tecnico
-                filtros_especiales['depto_id'] = None # Resetea el otro filtro
-                
-                nombre_corto = display_seleccionado.split('(')[0].strip()
-                filtro_estado.set(f"Técnico: {nombre_corto[:20]}...")
-                
-                ventana.destroy()
-                renderizar_servicios()
+            if not encontrados:
+                ctk.CTkLabel(scroll_frame, text="No hay departamentos con esa inicial", text_color="gray").pack(pady=20)
 
-        ctk.CTkButton(contenido, text="Aplicar Filtro", fg_color="#0C4A6E", hover_color="#155E75", corner_radius=10, width=200, height=40, command=_aplicar).pack(pady=(15, 10))
-        
-        threading.Thread(target=_cargar_tecnicos, daemon=True).start()
+        def ejecutar_filtro():
+            if seleccion_temp["id"] is None:
+                messagebox.showwarning("Atención", "Por favor, seleccione un departamento.")
+                return
+            
+            filtros_especiales['depto_id'] = seleccion_temp["id"]
+            filtros_especiales['tecnico_id'] = None 
+            
+            nombre_corto = seleccion_temp["nombre"]
+            if len(nombre_corto) > 20: 
+                nombre_corto = nombre_corto[:20] + "..."
+            filtro_estado.set(f"Depto: {nombre_corto}")
+            
+            ventana.destroy()
+            renderizar_servicios()
 
-    def abrir_ventana_seleccionar_departamento():
-        
-        ventana = ctk.CTkToplevel(root)
-        ventana.title("Seleccionar Departamento")
-        ventana.configure(fg_color="#F7F9FB")
-        ventana.grab_set()
-        ventana.focus_force()
-        ventana.resizable(False, False)
-        
-        contenido = ctk.CTkFrame(ventana, fg_color="#FFFFFF")
-        contenido.pack(padx=20, pady=20, fill="both", expand=True)
-
-        ctk.CTkLabel(contenido, text="Seleccione un Departamento", font=ctk.CTkFont(size=18, weight="bold"), text_color="#0C4A6E").pack(pady=(10, 15))
-
-        deptos_map = {}
-        
-        combo = ctk.CTkComboBox(
+        # Botón Aplicar
+        btn_aplicar = ctk.CTkButton(
             contenido, 
-            values=["Cargando..."],
-            width=300,
-            height=35
+            text="APLICAR FILTRO", 
+            fg_color="#0C4A6E",
+            hover_color="#155E75", 
+            height=45,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            command=ejecutar_filtro
         )
-        combo.pack(pady=10, padx=10)
+        btn_aplicar.grid(row=3, column=0, pady=20, padx=20, sticky="ew")
 
-        def _cargar_deptos():
+        search_entry.bind("<KeyRelease>", lambda event: render_lista(search_entry.get()))
+        
+        render_lista()
+        
+
+    
+    
+    
+    
+    def manejar_filtro_fecha(opcion):
+        # --- CORRECCIÓN: Todo este bloque debe tener sangría hacia la derecha ---
+        if opcion == "Personalizado":
             try:
-                resp = supabase.table("Departamento").select("id_departamento, nombre_departamento").order("nombre_departamento").execute()
-                deptos = resp.data or []
-                
-                if not deptos:
-                    root.after(0, lambda: combo.configure(values=["-- No hay deptos --"]))
+                from tkcalendar import Calendar
+            except ImportError:
+                messagebox.showerror("Error", "La librería 'tkcalendar' no está instalada.\nEjecute: pip install tkcalendar")
+                filtro_fecha.set("Todos") 
+                renderizar_servicios()
+                return
+
+            ventana = ctk.CTkToplevel(root)
+            ventana.title("Seleccionar rango de fechas")
+            ventana.configure(fg_color="#F7F9FB")
+            
+            # 1. Configurar tamaño fijo para evitar que se corte el botón
+            ventana.geometry("650x420") 
+            ventana.resizable(False, False)
+            ventana.grab_set()
+            ventana.focus_force()
+
+            contenido = ctk.CTkFrame(ventana, fg_color="#F7F9FB")
+            contenido.pack(padx=20, pady=20, fill="both", expand=True)
+
+            # Configuración del Grid
+            contenido.grid_columnconfigure(0, weight=1)
+            contenido.grid_columnconfigure(1, weight=1)
+            contenido.grid_rowconfigure(2, weight=1) # Fila de calendarios expandible
+
+            # Títulos
+            ctk.CTkLabel(contenido, text="Seleccione el rango de fechas", 
+                         font=ctk.CTkFont(size=18, weight="bold"), 
+                         text_color="#0C4A6E").grid(row=0, column=0, columnspan=2, pady=(10, 15))
+            
+            ctk.CTkLabel(contenido, text="Desde:", text_color="#2E3A59", 
+                         font=ctk.CTkFont(size=13, weight="bold")).grid(row=1, column=0, pady=(5, 5))
+            
+            ctk.CTkLabel(contenido, text="Hasta:", text_color="#2E3A59", 
+                         font=ctk.CTkFont(size=13, weight="bold")).grid(row=1, column=1, pady=(5, 5))
+
+            # Calendarios
+            cal_desde = Calendar(contenido, date_pattern="dd-mm-yyyy", selectmode="day")
+            cal_hasta = Calendar(contenido, date_pattern="dd-mm-yyyy", selectmode="day")
+            
+            cal_desde.grid(row=2, column=0, padx=15, pady=(0, 10))
+            cal_hasta.grid(row=2, column=1, padx=15, pady=(0, 10))
+
+            # Lógica corregida
+            def aplicar():
+                desde_str, hasta_str = cal_desde.get_date(), cal_hasta.get_date()
+                try:
+                    desde_obj = datetime.strptime(desde_str, "%d-%m-%Y").date()
+                    hasta_obj = datetime.strptime(hasta_str, "%d-%m-%Y").date()
+                except ValueError:
+                    return
+
+                if desde_obj > hasta_obj:
+                    messagebox.showwarning("Fechas inválidas", "La fecha 'Desde' no puede ser mayor que 'Hasta'.")
                     return
                 
-                deptos_map.clear()
-                display_names = []
+                hasta_inclusive = hasta_obj + timedelta(days=1)
                 
-                for d in deptos:
-                    nombre = d.get('nombre_departamento')
-                    id_depto = d.get('id_departamento')
-                    if nombre and id_depto:
-                        deptos_map[nombre] = id_depto
-                        display_names.append(nombre)
-                
-                root.after(0, lambda: combo.configure(values=display_names))
-                root.after(0, lambda: combo.set(display_names[0]))
-                
-            except Exception as e:
-                print(f"Error cargando departamentos: {e}")
-                root.after(0, lambda: combo.configure(values=["-- Error al cargar --"]))
-
-        def _aplicar():
-            display_seleccionado = combo.get()
-            id_depto = deptos_map.get(display_seleccionado)
-            
-            if id_depto:
-                filtros_especiales['depto_id'] = id_depto
-                filtros_especiales['tecnico_id'] = None # Resetea el otro filtro
-                
-                filtro_estado.set(f"Depto: {display_seleccionado[:20]}...")
+                # Guardamos en el diccionario global filtros_especiales
+                filtros_especiales['rango_fecha'] = (desde_obj.isoformat(), hasta_inclusive.isoformat())
                 
                 ventana.destroy()
                 renderizar_servicios()
 
-        ctk.CTkButton(contenido, text="Aplicar Filtro", fg_color="#0C4A6E", hover_color="#155E75", corner_radius=10, width=200, height=40, command=_aplicar).pack(pady=(15, 10))
-        
-        threading.Thread(target=_cargar_deptos, daemon=True).start()
+            # EL BOTÓN
+            btn_aplicar = ctk.CTkButton(
+                contenido, 
+                text="APLICAR FILTRO", 
+                fg_color="#0C4A6E", 
+                hover_color="#155E75", 
+                corner_radius=10, 
+                width=200, 
+                height=40, 
+                command=aplicar
+            )
+            btn_aplicar.grid(row=3, column=0, columnspan=2, pady=(20, 10))
+
+        else:
+            # Si elige otra opción del menú (ej. "Todos", "Hoy")
+            renderizar_servicios()
 
     def manejar_filtro_fecha(opcion):
         if opcion == "Personalizado":
@@ -2225,12 +2303,14 @@ def mostrar_pantalla_principal(root):
         if opcion == "Por Técnico...":
             abrir_ventana_seleccionar_tecnico()
         elif opcion == "Por Departamento...":
-            abrir_ventana_seleccionar_departamento()
+            # AQUÍ LLAMAMOS A LA NUEVA FUNCIÓN
+            abrir_ventana_filtrar_departamento() 
         else:
             filtros_especiales['tecnico_id'] = None
             filtros_especiales['depto_id'] = None
             renderizar_servicios()
-    
+            
+            
     # Filtro de Estado
     filtro_estado_menu = ctk.CTkOptionMenu(
         title_frame, 
