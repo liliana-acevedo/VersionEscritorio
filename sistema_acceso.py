@@ -317,7 +317,7 @@ def mostrar_pantalla_departamentos(root):
 
     ctk.CTkLabel(
         header,
-        text="Gestión de Departamentos",
+        text="GESTIÓN DE DEPARTAMENTO",
         text_color="white",
         font=ctk.CTkFont(size=20, weight="bold")
     ).grid(row=0, column=0, padx=20, pady=18, sticky="w")
@@ -883,7 +883,7 @@ def mostrar_pantalla_registro(root):
             ctk.CTkLabel(header_frame_table, text="DEPARTAMENTO", font=ctk.CTkFont(size=13, weight="bold"), 
                          text_color="#374151", anchor="w").grid(row=0, column=3, padx=8, pady=10, sticky="w")
             ctk.CTkLabel(header_frame_table, text="ROL", font=ctk.CTkFont(size=13, weight="bold"), 
-                         text_color="#374151", anchor="w").grid(row=0, column=4, padx=8, pady=10, sticky="w")
+                         text_color="#374151", anchor="w").grid(row=0, column=4, padx=7, pady=10, sticky="w")
 
             # Marco desplazable para los datos
             scroll_frame = ctk.CTkScrollableFrame(table_container, fg_color="#FFFFFF", corner_radius=0)
