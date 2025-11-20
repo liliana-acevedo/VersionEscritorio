@@ -223,10 +223,7 @@ def _fetch_and_render(root_window, content_frame, tabview, loading_label):
 
 
 def mostrar_pantalla_graficos(root, funcion_volver):
-    """
-    Muestra la pantalla de gráficos DENTRO del root.
-    """
-    
+ 
     _clear_widgets(root) 
     root.title("Dashboard de Gráficos")
     
