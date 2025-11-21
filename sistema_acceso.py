@@ -1372,7 +1372,8 @@ def mostrar_pantalla_principal(root):
 
     def manejar_filtro_principal(opcion):
         if opcion == "Por Departamento...":
-            abrir_ventana_filtrar_departamento() 
+            abrir_ventana_filtrar_departamento()      
+            
         else:
             filtros_especiales['tecnico_id'] = None
             filtros_especiales['depto_id'] = None
