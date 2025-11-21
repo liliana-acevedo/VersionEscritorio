@@ -1630,9 +1630,6 @@ def mostrar_pantalla_principal(root):
         return obtener_servicios_filtrados_base(query)
 
 
-
-
-
     def renderizar_servicios():
         # 1. Limpieza inicial
         for w in scrollable.winfo_children():
