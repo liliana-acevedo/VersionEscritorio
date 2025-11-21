@@ -1626,228 +1626,205 @@ def mostrar_pantalla_principal(root):
 
         return obtener_servicios_filtrados_base(query)
 
+
+
+
+
     def renderizar_servicios():
-    
+        # 1. Limpieza inicial
         for w in scrollable.winfo_children():
             w.destroy()
 
-        cargando_lbl = ctk.CTkLabel(scrollable, text="Cargando servicios...", font=ctk.CTkFont(size=14, weight="bold"), text_color="#0C4A6E")
+        # Mensaje de carga inicial
+        cargando_lbl = ctk.CTkLabel(scrollable, text="Consultando servicios...", font=ctk.CTkFont(size=14, weight="bold"), text_color="#0C4A6E")
         cargando_lbl.pack(pady=20)
         
-        def tarea():
+        # --- ESTADO DE LA PAGINACIÓN ---
+        estado_paginacion = {
+            "datos": [],
+            "usuarios_map": {},
+            "indice_actual": 0,
+            "lote_tamano": 10,  # Carga de 10 en 10 para máxima fluidez
+            "btn_cargar_mas": None
+        }
+
+        # Hilo en segundo plano para obtener los datos
+        def tarea_obtener_datos():
             try:
-                servicios = obtener_servicios_filtrados()
-                usuarios_map = map_usuarios_por_cedula()
+                raw_servicios = obtener_servicios_filtrados() # Trae todo
+                estado_paginacion["datos"] = raw_servicios
+                estado_paginacion["usuarios_map"] = map_usuarios_por_cedula()
             except Exception as e:
-                servicios = []
-                usuarios_map = {}
-                print("Error en carga:", e)
+                print(f"Error obteniendo datos: {e}")
+                estado_paginacion["datos"] = []
+                estado_paginacion["usuarios_map"] = {}
 
-            def _render():
+            # Al terminar la consulta, iniciamos la vista en el hilo principal
+            scrollable.after(0, iniciar_vista)
+
+        def iniciar_vista():
+            try:
                 cargando_lbl.destroy()
-                scrollable._parent_canvas.yview_moveto(0.0)
-                scrollable.grid_columnconfigure(0, weight=1)
+            except:
+                pass
 
-                if not servicios:
-                    ctk.CTkLabel(scrollable, text="No hay servicios registrados.", font=ctk.CTkFont(size=14)).pack(pady=20)
-                    return
+            if not estado_paginacion["datos"]:
+                ctk.CTkLabel(scrollable, text="No hay servicios registrados con estos filtros.", 
+                             font=ctk.CTkFont(size=14), text_color="gray").pack(pady=20)
+                return
+            
+            scrollable._parent_canvas.yview_moveto(0.0)
+            scrollable.grid_columnconfigure(0, weight=1)
+            
+            # Cargamos el primer grupo de tarjetas
+            cargar_siguiente_lote()
+
+        # --- FUNCIÓN DE RENDERIZADO (DISEÑO RESTAURADO) ---
+        def cargar_siguiente_lote():
+            # Eliminar botón anterior si existe
+            if estado_paginacion["btn_cargar_mas"]:
+                estado_paginacion["btn_cargar_mas"].destroy()
+                estado_paginacion["btn_cargar_mas"] = None
+
+            # Índices
+            inicio = estado_paginacion["indice_actual"]
+            fin = inicio + estado_paginacion["lote_tamano"]
+            lista_completa = estado_paginacion["datos"]
+            lote = lista_completa[inicio:fin]
+
+            # Estilos constantes
+            COLOR_HEADER_BG = "#0A2B4C"
+            COLOR_BODY_BG = "#F5F5ED"
+            COLOR_HEADER_TEXT = "#FFFFFF"
+            COLOR_DETAIL_TEXT = "#4A4A4A"
+            COLOR_SEPARATOR = "#DCDCDC" # Color de las líneas verticales
+            CARD_CORNER_RADIUS = 8
+            
+            FONT_HEADER = ctk.CTkFont(size=18, weight="bold")
+            FONT_DETAIL = ctk.CTkFont(size=15)
+            FONT_PILL = ctk.CTkFont(size=11, weight="bold")
+
+            colores_estado = {
+                "Completado": ("#D1FAE5", "#047857", "#047857"),
+                "Pendiente":  ("#FEF3C7", "#92400E", "#92400E"),
+                "Recibido":   ("#DBEAFE", "#1E3A8A", "#1E3A8A"),
+                "Desconocido": ("#F3F4F6", "#374151", "#374151")
+            }
+            
+            # Configuración para ajustar texto
+            col_min_width = 300
+            wrap_width = col_min_width - 20
+
+            for i, s in enumerate(lote):
+                grid_index = inicio + i
                 
-                COLOR_HEADER_BG = "#0A2B4C"
-                COLOR_BODY_BG = "#F5F5ED"
-                COLOR_HEADER_TEXT = "#FFFFFF"
-                COLOR_TITLE_TEXT = "#2E2E2E"
-                COLOR_DETAIL_TEXT = "#4A4A4A"
-                CARD_CORNER_RADIUS = 8
-                COLOR_SEPARATOR = "#DCDCDC" 
-
-                FONT_HEADER = ctk.CTkFont(size=18, weight="bold")
-                FONT_TITLE = ctk.CTkFont(size=16, weight="bold")
-                FONT_DETAIL = ctk.CTkFont(size=15)
-                FONT_PILL = ctk.CTkFont(size=11, weight="bold")
-
-                colores_estado = {
-                    "Completado": ("#D1FAE5", "#047857", "#047857"),
-                    "Pendiente":  ("#FEF3C7", "#92400E", "#92400E"),
-                    "Recibido":   ("#DBEAFE", "#1E3A8A", "#1E3A8A"),
-                    "Desconocido": ("#F3F4F6", "#374151", "#374151")
-                }
-
-                col_min_width = 340 
-                wrap_width = col_min_width - 15 
+                # Preparar textos y colores
+                estado_text = traducir_estado(s.get("estado"))
+                color_bg, color_border, color_text = colores_estado.get(estado_text, colores_estado["Desconocido"])
                 
-                for index, s in enumerate(servicios):
-                    estado_text = traducir_estado(s.get("estado"))
-                    color_bg, color_border, color_text = colores_estado.get(estado_text, colores_estado["Desconocido"])
+                titulo_val = (s.get('descripcion') or "Sin descripción").capitalize()
+                usuario_val = estado_paginacion["usuarios_map"].get(str(s.get('usuario')), 'Desconocido')
+                depto_val = s.get('Departamento', 'Desconocido')
+                tecnico_val = estado_paginacion["usuarios_map"].get(str(s.get('tecnico')), 'Sin asignar')
+                
+                reporte_valor = s.get("reporte")
+                if not reporte_valor or str(reporte_valor).strip().lower() in ["none", "null", ""]:
+                    reporte_valor = "Sin reporte"
 
-                    card_main = ctk.CTkFrame(
-                        scrollable,
-                        fg_color=COLOR_BODY_BG, 
-                        corner_radius=CARD_CORNER_RADIUS,
-                        border_color="#DCDCDC",
-                        border_width=1
-                    )
-                    
-                    card_main.grid(row=index, column=0, sticky="ew", padx=15, pady=5)
+                # 1. MARCO PRINCIPAL
+                card_main = ctk.CTkFrame(
+                    scrollable,
+                    fg_color=COLOR_BODY_BG, 
+                    corner_radius=CARD_CORNER_RADIUS,
+                    border_color="#DCDCDC",
+                    border_width=1
+                )
+                card_main.grid(row=grid_index, column=0, sticky="ew", padx=15, pady=8)
+                card_main.grid_columnconfigure(0, weight=1)
 
-                    # Configuración interna de la tarjeta
-                    card_main.grid_columnconfigure(0, weight=1) 
-                    card_main.grid_rowconfigure(0, weight=0)
-                    card_main.grid_rowconfigure(1, weight=0) 
+                # 2. ENCABEZADO AZUL
+                header_frame = ctk.CTkFrame(card_main, fg_color=COLOR_HEADER_BG, corner_radius=0)
+                header_frame.grid(row=0, column=0, sticky="ew")
+                
+                ctk.CTkLabel(
+                    header_frame, 
+                    text=f" SERVICIO #{s.get('id_servicio')} | {titulo_val}", 
+                    font=FONT_HEADER, 
+                    text_color=COLOR_HEADER_TEXT,
+                    anchor="w"
+                ).pack(fill="x", padx=15, pady=10)
 
-                    # Encabezado (Azul)
-                    header_frame = ctk.CTkFrame(card_main, fg_color=COLOR_HEADER_BG, corner_radius=0)
-                    header_frame.grid(row=0, column=0, sticky="ew")
-                    titulo_val1 = (s.get('descripcion') or "Sin descripción").capitalize()
+                # 3. CONTENEDOR DEL CUERPO
+                body_container = ctk.CTkFrame(card_main, fg_color="transparent")
+                body_container.grid(row=1, column=0, sticky="nsew", padx=15, pady=5)
+                body_container.grid_columnconfigure(0, weight=1)
+                body_container.grid_rowconfigure(0, weight=1)
 
-                    ctk.CTkLabel(
-                        header_frame, 
-                        text=f" SERVICIO #{s.get('id_servicio')} |  {titulo_val1}", 
-                        font=FONT_HEADER, 
-                        text_color=COLOR_HEADER_TEXT,
-                        anchor="w"
-                    ).pack(fill="x", padx=15, pady=10) 
+                # 4. GRID DE 3 COLUMNAS CON SEPARADORES (RESTAURADO)
+                columns_frame = ctk.CTkFrame(body_container, fg_color="transparent")
+                columns_frame.grid(row=0, column=0, sticky="nsew")
+                
+                # Configuración de pesos para que las columnas se expandan y las líneas sean finas
+                columns_frame.grid_columnconfigure(0, weight=1, minsize=col_min_width) # Columna 1
+                columns_frame.grid_columnconfigure(2, weight=1, minsize=col_min_width) # Columna 2
+                columns_frame.grid_columnconfigure(4, weight=1, minsize=col_min_width) # Columna 3
+                columns_frame.grid_columnconfigure((1, 3), weight=0) # Separadores
 
-                    # Contenedor del Cuerpo (Grid)
-                    body_container = ctk.CTkFrame(card_main, fg_color="transparent")
-                    body_container.grid(row=1, column=0, sticky="nsew", padx=15, pady=(5, 5))
+                # --- COLUMNA 1: Usuario y Depto ---
+                c1 = ctk.CTkFrame(columns_frame, fg_color="transparent")
+                c1.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+                ctk.CTkLabel(c1, text=f"Usuario: {usuario_val}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w", justify="left", wraplength=wrap_width).pack(fill="x", anchor="w")
+                ctk.CTkLabel(c1, text=f"Departamento: {depto_val}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w", justify="left", wraplength=wrap_width).pack(fill="x", anchor="w")
 
-                    # Columna de texto (con las 3 sub-columnas)
-                    body_container.grid_columnconfigure(0, weight=1) 
-                    
-                    body_container.grid_columnconfigure(1, weight=0) 
-                    
-                    # Frame de detalles (se coloca en la fila 0)
-                    details_frame = ctk.CTkFrame(body_container, fg_color="transparent")
-                    details_frame.grid(row=0, column=0, sticky="nsew")
-                        
-                    ctk.CTkLabel(
-                        details_frame, 
-                        text=  "",
-                        font=FONT_TITLE, 
-                        text_color=COLOR_TITLE_TEXT, 
-                        anchor="w",
-                        justify="left", 
-                        wraplength= (col_min_width * 3) - 50 
-                    ).pack(fill="x", pady=(0, 4))
+                # --- SEPARADOR 1 ---
+                ctk.CTkFrame(columns_frame, width=2, fg_color=COLOR_SEPARATOR).grid(row=0, column=1, sticky="ns", pady=5)
 
-                    # Frame para las 3 columnas de abajo
-                    columns_frame = ctk.CTkFrame(details_frame, fg_color="transparent")
-                    columns_frame.pack(fill="x")
-                    
-                    # --- Forzamos un ancho mínimo para cada columna de datos ---
-                    columns_frame.grid_columnconfigure(0, weight=1, minsize=col_min_width)
-                    columns_frame.grid_columnconfigure(2, weight=1, minsize=col_min_width)
-                    columns_frame.grid_columnconfigure(4, weight=1, minsize=col_min_width)
-                    
-                    columns_frame.grid_columnconfigure((1, 3), weight=0) 
-                    columns_frame.grid_rowconfigure(0, weight=1) 
+                # --- COLUMNA 2: Técnico y Reporte ---
+                c2 = ctk.CTkFrame(columns_frame, fg_color="transparent")
+                c2.grid(row=0, column=2, sticky="nsew", padx=5)
+                ctk.CTkLabel(c2, text=f"Técnico: {tecnico_val}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w", justify="left", wraplength=wrap_width).pack(fill="x", anchor="w")
+                ctk.CTkLabel(c2, text=f"Reporte: {reporte_valor}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w", justify="left", wraplength=wrap_width).pack(fill="x", anchor="w")
 
-                    # --- Columna 1 (CON TEXT-WRAPPING) ---
-                    col1_frame = ctk.CTkFrame(columns_frame, fg_color="transparent")
-                    
-                    col1_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
-                    
-                    usuario_val = usuarios_map.get(str(s.get('usuario')), 'Desconocido')
-                    depto_val = s.get('Departamento', 'Desconocido')
-                    
-                    ctk.CTkLabel(
-                        col1_frame, 
-                        text=f"Usuario: {usuario_val}", 
-                        font=FONT_DETAIL, 
-                        text_color=COLOR_DETAIL_TEXT, 
-                        anchor="w",
-                        justify="left",
-                        wraplength=wrap_width 
-                    ).pack(fill="x", pady=0, anchor="w")
-                    ctk.CTkLabel(
-                        col1_frame, 
-                        text=f"Departamento: {depto_val}", 
-                        font=FONT_DETAIL, 
-                        text_color=COLOR_DETAIL_TEXT, 
-                        anchor="w",
-                        justify="left", 
-                        wraplength=wrap_width
-                    ).pack(fill="x", pady=0, anchor="w") 
+                # --- SEPARADOR 2 ---
+                ctk.CTkFrame(columns_frame, width=2, fg_color=COLOR_SEPARATOR).grid(row=0, column=3, sticky="ns", pady=5)
 
-                    
-                    ctk.CTkFrame(columns_frame, width=2, fg_color=COLOR_SEPARATOR).grid(row=0, column=1, sticky="ns")
+                # --- COLUMNA 3: Fechas ---
+                c3 = ctk.CTkFrame(columns_frame, fg_color="transparent")
+                c3.grid(row=0, column=4, sticky="nsew", padx=(5, 0))
+                ctk.CTkLabel(c3, text=f"Fecha creación: {formatear_fecha(s.get('fecha'))}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w").pack(fill="x", anchor="w")
+                ctk.CTkLabel(c3, text=f"Fecha de culminación: {formatear_fecha(s.get('fecha_culminado'))}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w").pack(fill="x", anchor="w")
 
-                    
-                    col2_frame = ctk.CTkFrame(columns_frame, fg_color="transparent")
-                    
-                    col2_frame.grid(row=0, column=2, sticky="nsew", padx=5)
-                    
-                    tecnico_val = usuarios_map.get(str(s.get('tecnico')), 'Sin asignar')
-                        
-                    ctk.CTkLabel(
-                        col2_frame, 
-                        text=f"Técnico: {tecnico_val}", 
-                        font=FONT_DETAIL, 
-                        text_color=COLOR_DETAIL_TEXT, 
-                        anchor="w",
-                        justify="left", 
-                        wraplength=wrap_width 
-                    ).pack(fill="x", pady=0, anchor="w") 
-                    
-                    reporte_valor = s.get("reporte")
-                    if not reporte_valor or str(reporte_valor).strip().lower() in ["none", "null", ""]:
-                        reporte_valor = "Sin reporte"
-                        
-                    ctk.CTkLabel(
-                        col2_frame, 
-                        text=f"Reporte: {reporte_valor}",
-                        font=FONT_DETAIL, 
-                        text_color=COLOR_DETAIL_TEXT, 
-                        anchor="w",
-                        justify="left", 
-                        wraplength=wrap_width 
-                    ).pack(fill="x", pady=0, anchor="w") 
+                # 5. PASTILLA DE ESTADO (Pill)
+                pill = ctk.CTkFrame(body_container, fg_color=color_bg, border_color=color_border, border_width=1, corner_radius=14)
+                # Usamos sticky="se" para pegarlo abajo a la derecha
+                pill.grid(row=0, column=0, padx=(0, 5), pady=(0, 5), sticky="se")
+                ctk.CTkLabel(pill, text=estado_text.upper(), text_color=color_text, font=FONT_PILL).pack(padx=12, pady=5)
 
-                  
-                    ctk.CTkFrame(columns_frame, width=2, fg_color=COLOR_SEPARATOR).grid(row=0, column=3, sticky="ns")
+            # Actualizar índice
+            estado_paginacion["indice_actual"] = fin
 
-                   
-                    col3_frame = ctk.CTkFrame(columns_frame, fg_color="transparent")
-                   
-                    col3_frame.grid(row=0, column=4, sticky="nsew", padx=(5, 0))
+            # Botón "Cargar más"
+            registros_restantes = len(lista_completa) - estado_paginacion["indice_actual"]
+            
+            if registros_restantes > 0:
+                btn = ctk.CTkButton(
+                    scrollable,
+                    text=f"▼ MOSTRAR MÁS ({registros_restantes} restantes) ▼",
+                    fg_color="#E0E7FF",
+                    text_color="#1E3A8A",
+                    hover_color="#C7D2FE",
+                    font=ctk.CTkFont(size=12, weight="bold"),
+                    height=35,
+                    command=lambda: cargar_siguiente_lote()
+                )
+                btn.grid(row=fin + 1, column=0, pady=15, sticky="ew", padx=40)
+                estado_paginacion["btn_cargar_mas"] = btn
+            else:
+                lbl_fin = ctk.CTkLabel(scrollable, text="--- No hay más registros ---", text_color="gray", font=ctk.CTkFont(size=11))
+                lbl_fin.grid(row=fin + 1, column=0, pady=20)
 
-                    ctk.CTkLabel(
-                        col3_frame, 
-                        text=f"Fecha creación: {formatear_fecha(s.get('fecha'))}", 
-                        font=FONT_DETAIL, 
-                        text_color=COLOR_DETAIL_TEXT, 
-                        anchor="w",
-                        justify="left"
-                    ).pack(fill="x", pady=0, anchor="w") 
-                    ctk.CTkLabel(
-                        col3_frame, 
-                        text=f"Fecha de culminación: {formatear_fecha(s.get('fecha_culminado'))}", 
-                        font=FONT_DETAIL, 
-                        text_color=COLOR_DETAIL_TEXT, 
-                        anchor="w",
-                        justify="left"
-                    ).pack(fill="x", pady=0, anchor="w") 
-                    
-                    # 3b. Insignia (Pill)
-                    pill = ctk.CTkFrame(
-                        body_container, 
-                        fg_color=color_bg, 
-                        border_color=color_border, 
-                        border_width=1, 
-                        corner_radius=14 
-                    )
-                    pill.grid(row=0, column=1, padx=(10, 0), pady=(0,3), sticky="se") 
-                    
-                    ctk.CTkLabel(
-                        pill, 
-                        text=estado_text.upper(), 
-                        text_color=color_text, 
-                        font=FONT_PILL
-                    ).pack(padx=12, pady=5) 
-
-            scrollable.after(0, _render)
-
-        threading.Thread(target=tarea, daemon=True).start()
+        # Iniciar hilo
+        threading.Thread(target=tarea_obtener_datos, daemon=True).start()
     
     def exportar_a_excel():
         
