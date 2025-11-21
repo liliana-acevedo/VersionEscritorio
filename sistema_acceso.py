@@ -994,9 +994,6 @@ def mostrar_pantalla_registro(root):
         ctk.CTkLabel(col_vacia_frame, text=f"Error al cargar usuarios: {e}",
                      text_color="red", font=ctk.CTkFont(size=14)).pack(pady=20, padx=20)
 
-
-
-
     # --- INICIO DEL FORMULARIO CORREGIDO (mostrar_pantalla_registro) ---
     
     form_frame = ctk.CTkFrame(content_frame, fg_color="#FFFFFF", corner_radius=10)
