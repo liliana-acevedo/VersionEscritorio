@@ -585,6 +585,96 @@ def mostrar_pantalla_principal(root):
         search_entry.bind("<KeyRelease>", lambda event: render_lista(search_entry.get()))
         render_lista()
 
+    def abrir_ventana_filtrar_tecnico():
+        ventana = ctk.CTkToplevel(root)
+        ventana.title("Filtrar por Técnico")
+        ventana.configure(fg_color="#F7F9FB")
+        ventana.geometry("580x600")
+        ventana.grab_set()
+        ventana.focus_force()
+        ventana.resizable(False, False)
+
+        seleccion_temp = {"cedula": None, "nombre": None, "widget": None}
+        contenido = ctk.CTkFrame(ventana, fg_color="#FFFFFF")
+        contenido.pack(padx=20, pady=20, fill="both", expand=True)
+        contenido.grid_columnconfigure(0, weight=1)
+        contenido.grid_rowconfigure(2, weight=1)
+
+        ctk.CTkLabel(contenido, text="Buscar Técnico", font=ctk.CTkFont(size=18, weight="bold"), text_color="#0C4A6E").grid(row=0, column=0, pady=(15, 10), sticky="w", padx=20)
+        search_entry = ctk.CTkEntry(contenido, placeholder_text="Escriba el nombre...", height=40, border_color="#A1A1A1")
+        search_entry.grid(row=1, column=0, pady=(0, 15), padx=20, sticky="ew")
+
+        scroll_frame = ctk.CTkScrollableFrame(contenido, fg_color="#F9FAFB")
+        scroll_frame.grid(row=2, column=0, sticky="nsew", padx=20, pady=(0, 10))
+        scroll_frame.grid_columnconfigure(0, weight=1)
+
+        # Obtener técnicos (Rol 1) desde Supabase
+        # CORRECCION: Se usa "rol" en lugar de "id_rol" porque así se llama en la tabla Usuario
+        tecnicos_lista = []
+        try:
+            resp = supabase.table("Usuario").select("cedula, nombre, apellido").eq("rol", 1).execute()
+            tecnicos_lista = resp.data or []
+        except Exception as e:
+            print("Error al obtener técnicos:", e)
+
+        def seleccionar_item(nombre_completo, cedula, btn_widget):
+            if seleccion_temp["widget"] and seleccion_temp["widget"].winfo_exists():
+                seleccion_temp["widget"].configure(fg_color="transparent", text_color="black")
+            seleccion_temp["cedula"] = cedula
+            seleccion_temp["nombre"] = nombre_completo
+            seleccion_temp["widget"] = btn_widget
+            btn_widget.configure(fg_color="#0C4A6E", text_color="white")
+
+        def render_lista(filtro=""):
+            for w in scroll_frame.winfo_children():
+                w.destroy()
+            
+            texto_busqueda = filtro.lower().strip()
+            encontrados = False
+            
+            for tec in tecnicos_lista:
+                nombre = (tec.get("nombre") or "").strip()
+                apellido = (tec.get("apellido") or "").strip()
+                nombre_completo = f"{nombre} {apellido}".strip()
+                cedula = tec.get("cedula")
+                
+                if not texto_busqueda or nombre_completo.lower().startswith(texto_busqueda):
+                    encontrados = True
+                    es_seleccionado = (cedula == seleccion_temp["cedula"])
+                    bg_color = "#0C4A6E" if es_seleccionado else "transparent"
+                    fg_txt = "white" if es_seleccionado else "black"
+
+                    btn = ctk.CTkButton(scroll_frame, text=nombre_completo, fg_color=bg_color, text_color=fg_txt, hover_color="#3D89D1", anchor="w", height=40, font=ctk.CTkFont(size=13), command=None)
+                    btn.configure(command=lambda n=nombre_completo, c=cedula, b=btn: seleccionar_item(n, c, b))
+                    btn.pack(fill="x", pady=1)
+                    if es_seleccionado:
+                        seleccion_temp["widget"] = btn
+            
+            if not encontrados:
+                ctk.CTkLabel(scroll_frame, text="No se encontraron técnicos", text_color="gray").pack(pady=20)
+
+        def ejecutar_filtro():
+            if seleccion_temp["cedula"] is None:
+                messagebox.showwarning("Atención", "Por favor, seleccione un técnico.")
+                return
+            
+            filtros_especiales['tecnico_id'] = seleccion_temp["cedula"]
+            filtros_especiales['depto_id'] = None 
+            
+            nombre_corto = seleccion_temp["nombre"]
+            if len(nombre_corto) > 20:
+                nombre_corto = nombre_corto[:20] + "..."
+                
+            filtro_estado.set(f"Téc: {nombre_corto}")
+            ventana.destroy()
+            renderizar_servicios()
+
+        btn_aplicar = ctk.CTkButton(contenido, text="APLICAR FILTRO", fg_color="#0C4A6E", hover_color="#155E75", height=45, font=ctk.CTkFont(size=14, weight="bold"), command=ejecutar_filtro)
+        btn_aplicar.grid(row=3, column=0, pady=20, padx=20, sticky="ew")
+        
+        search_entry.bind("<KeyRelease>", lambda event: render_lista(search_entry.get()))
+        render_lista()
+
     def manejar_filtro_fecha(opcion):
         if opcion == "Personalizado":
             try:
@@ -640,14 +730,15 @@ def mostrar_pantalla_principal(root):
 
     def manejar_filtro_principal(opcion):
         if opcion == "Por Departamento...":
-            abrir_ventana_filtrar_departamento()      
-            
+            abrir_ventana_filtrar_departamento()
+        elif opcion == "Por Técnico...":
+            abrir_ventana_filtrar_tecnico()      
         else:
             filtros_especiales['tecnico_id'] = None
             filtros_especiales['depto_id'] = None
             renderizar_servicios()
             
-    filtro_estado_menu = ctk.CTkOptionMenu(title_frame, values=["Todos", "Pendiente", "Recibido", "Completado", "Por Departamento..."], variable=filtro_estado, command=manejar_filtro_principal, fg_color="#0C4A6E", button_color="#155E75", text_color="white", width=200, height=35, dropdown_fg_color="#E5E7EB", dropdown_text_color="black")
+    filtro_estado_menu = ctk.CTkOptionMenu(title_frame, values=["Todos", "Pendiente", "Recibido", "Completado", "Por Técnico...", "Por Departamento..."], variable=filtro_estado, command=manejar_filtro_principal, fg_color="#0C4A6E", button_color="#155E75", text_color="white", width=200, height=35, dropdown_fg_color="#E5E7EB", dropdown_text_color="black")
     filtro_estado_menu.grid(row=0, column=1, padx=5, sticky="e")
 
     filtro_fecha_menu = ctk.CTkOptionMenu(title_frame, values=["Todos", "Hoy", "Ayer", "Semana anterior", "Personalizado"], variable=filtro_fecha, command=manejar_filtro_fecha, fg_color="#0C4A6E", button_color="#155E75", text_color="white", width=180, height=35, dropdown_fg_color="#E5E7EB", dropdown_text_color="black")
