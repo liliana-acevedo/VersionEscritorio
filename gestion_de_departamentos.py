@@ -73,6 +73,7 @@ def mostrar_pantalla_departamentos(root):
         texto_eliminar = "ELIMINAR"
         ancho_eliminar = 110
 
+    # El comando de eliminar se define más abajo
     eliminar_btn = ctk.CTkButton(actions, text=texto_eliminar, image=icono_eliminar, fg_color="#DC2626", hover_color="#B91C1C", width=ancho_eliminar, height=34, command=lambda: on_eliminar())
     eliminar_btn.grid(row=0, column=0)
 
@@ -97,6 +98,22 @@ def mostrar_pantalla_departamentos(root):
     depto_notificacion = ctk.CTkLabel(right, text="", text_color="#16A34A")
     depto_notificacion.grid(row=2, column=0, pady=(0, 20))
 
+    # --- FUNCIONES LÓGICAS ---
+
+    def limpiar_seleccion():
+        """Resetea los campos y la selección visual, pero NO borra la notificación."""
+        selected["id"] = None
+        selected["nombre"] = None
+        depto_entry.delete(0, "end")
+        selection_label.configure(text="Ningún departamento seleccionado")
+        guardar_btn.configure(text="GUARDAR")
+        # NOTA: Se eliminó la línea que borraba depto_notificacion aquí
+
+    def on_cancelar():
+        """Limpia la selección y también borra el mensaje de notificación."""
+        limpiar_seleccion()
+        depto_notificacion.configure(text="")
+
     def on_guardar():
         nombre = depto_entry.get().strip().upper()
         if not nombre:
@@ -107,6 +124,7 @@ def mostrar_pantalla_departamentos(root):
             actualizar_departamento(selected["id"], nombre)
             cargar_departamentos()
             limpiar_seleccion()
+            # El mensaje de 'actualizar_departamento' persistirá porque limpiar_seleccion ya no lo borra
         else:
             try:
                 supabase.table("Departamento").insert({"nombre_departamento": nombre}).execute()
@@ -120,16 +138,8 @@ def mostrar_pantalla_departamentos(root):
     guardar_btn = ctk.CTkButton(right, text="GUARDAR CAMBIOS", fg_color="#16A34A", hover_color="#15803D", font=ctk.CTkFont(size=13, weight="bold"), width=450, height=45, command=on_guardar)
     guardar_btn.grid(row=3, column=0, pady=(10, 10), padx=20)
 
-    cancelar_btn = ctk.CTkButton(right, text="CANCELAR", fg_color="#8b8a8a", hover_color="#777373", font=ctk.CTkFont(size=13, weight="bold"), width=450, height=45, command=lambda: limpiar_seleccion())
+    cancelar_btn = ctk.CTkButton(right, text="CANCELAR", fg_color="#8b8a8a", hover_color="#777373", font=ctk.CTkFont(size=13, weight="bold"), width=450, height=45, command=on_cancelar)
     cancelar_btn.grid(row=4, column=0, pady=(0, 20))
-    
-    def limpiar_seleccion():
-        selected["id"] = None
-        selected["nombre"] = None
-        depto_entry.delete(0, "end")
-        selection_label.configure(text="Ningún departamento seleccionado")
-        guardar_btn.configure(text="GUARDAR")
-        depto_notificacion.configure(text="", text_color="#16A34A")
 
     def seleccionar(id_dep, nombre, frame):
         for r in rows.winfo_children():
@@ -142,7 +152,7 @@ def mostrar_pantalla_departamentos(root):
         depto_entry.delete(0, "end")
         depto_entry.insert(0, nombre)
         guardar_btn.configure(text="GUARDAR CAMBIOS")
-        depto_notificacion.configure(text="", text_color="#16A34A") 
+        depto_notificacion.configure(text="", text_color="#16A34A") # Aquí sí limpiamos al seleccionar uno nuevo
 
     def actualizar_departamento(id_dep, nombre):
         try:
@@ -162,8 +172,10 @@ def mostrar_pantalla_departamentos(root):
             depto_notificacion.configure(text="Departamento eliminado.", text_color="#16A34A")
         except Exception as e:
             depto_notificacion.configure(text=f"Error: {e}", text_color="red")
+        
         cargar_departamentos()
-        limpiar_seleccion()
+        limpiar_seleccion() 
+        # Al llamar a limpiar_seleccion, el mensaje "Departamento eliminado" se mantendrá visible.
 
     def cargar_departamentos():
         for w in rows.winfo_children():
