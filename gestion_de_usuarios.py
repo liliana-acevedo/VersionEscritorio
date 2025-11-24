@@ -308,10 +308,10 @@ def mostrar_pantalla_registro(root):
     COL_CONF = [
         (0, "NOMBRE", 1, 100),
         (1, "APELLIDO", 1, 100),
-        (2, "CÉDULA", 0, 90),
-        (3, "DEPARTAMENTO", 2, 200), 
+        (2, "CÉDULA", 0, 99),
+        (3, "DEPARTAMENTO", 2, 300), 
         (4, "ROL", 0, 120),          
-        (5, "ESTADO", 1, 110)        
+        (5, "ESTADO", 6, 110)        
     ]
 
     # --- AJUSTE DE ESPACIO (Aquí solucionamos el hueco grande) ---
@@ -349,7 +349,7 @@ def mostrar_pantalla_registro(root):
             if not usuario_seleccionado: return
             alternar_bloqueo_usuario(usuario_seleccionado['cedula'], usuario_seleccionado['data']['bloqueado'], usuario_seleccionado['nombre_completo'], recargar_tabla_usuarios)
 
-        btn_bloqueo_global = ctk.CTkButton(botones_superior_frame, text="BLOQUEAR USUARIO", fg_color="#D97706", hover_color="#B45309", font=ctk.CTkFont(size=12, weight="bold"), width=160, height=35, state="disabled", command=_accion_bloqueo)
+        btn_bloqueo_global = ctk.CTkButton(botones_superior_frame, text="BLOQUEAR USUARIO", fg_color="#D97706", hover_color="#FFFFFF", font=ctk.CTkFont(size=12, weight="bold"), width=160, height=35, state="disabled", command=_accion_bloqueo)
         btn_bloqueo_global.pack(side="left", padx=(5, 10))
 
         seleccion_label = ctk.CTkLabel(botones_superior_frame, text="NINGÚN USUARIO SELECCIONADO", text_color="white", fg_color="#0C4A6E", corner_radius=6, font=ctk.CTkFont(size=11, weight="bold"), padx=10, pady=5)
