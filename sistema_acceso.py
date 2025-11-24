@@ -382,10 +382,19 @@ def mostrar_pantalla_principal(root):
 
                 ctk.CTkFrame(columns_frame, width=2, fg_color=COLOR_SEPARATOR).grid(row=0, column=3, sticky="ns", pady=5)
 
+                # --- COLUMNA 3 (Fechas) ---
                 c3 = ctk.CTkFrame(columns_frame, fg_color="transparent")
                 c3.grid(row=0, column=4, sticky="nsew", padx=(5, 0))
+
+                # Fecha Creación
                 ctk.CTkLabel(c3, text=f"Fecha creación: {formatear_fecha(s.get('fecha'))}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w").pack(fill="x", anchor="w")
+
+                # CORRECCIÓN AQUÍ: Se cambió 'fecha_asignada' por 'fecha_asignado'
+                ctk.CTkLabel(c3, text=f"Fecha Asignación: {formatear_fecha(s.get('fecha_asignado'))}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w").pack(fill="x", anchor="w")
+
+                # Fecha Culminación
                 ctk.CTkLabel(c3, text=f"Fecha de culminación: {formatear_fecha(s.get('fecha_culminado'))}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w").pack(fill="x", anchor="w")
+                
 
                 pill = ctk.CTkFrame(body_container, fg_color=color_bg, border_color=color_border, border_width=1, corner_radius=14)
                 pill.grid(row=0, column=0, padx=(0, 5), pady=(0, 5), sticky="se")
@@ -609,7 +618,6 @@ def mostrar_pantalla_principal(root):
         scroll_frame.grid_columnconfigure(0, weight=1)
 
         # Obtener técnicos (Rol 1) desde Supabase
-        # CORRECCION: Se usa "rol" en lugar de "id_rol" porque así se llama en la tabla Usuario
         tecnicos_lista = []
         try:
             resp = supabase.table("Usuario").select("cedula, nombre, apellido").eq("rol", 1).execute()
