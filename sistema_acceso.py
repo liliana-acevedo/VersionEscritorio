@@ -46,7 +46,6 @@ def formatear_fecha(iso_fecha_str):
 
 # --- LÓGICA DE SESIÓN ---
 def cerrar_sesion(root):
-    # Importamos setup_login_app aquí para evitar el error "Circular Import"
     from login import setup_login_app
     setup_login_app(root)
 
@@ -95,7 +94,7 @@ def map_usuarios_por_cedula():
         return {}
 
 def traducir_estado(valor):
-    return {1: "Pendiente", 2: "Completado", 3: "Recibido"}.get(int(valor), "Desconocido") if valor else "Desconocido"
+    return {1: "Pendiente", 2: "Completado", 3: "Recibido"}.get(int(valor), "Pendiente") if valor else "Pendiente"
 
 def obtener_servicios_filtrados_base(query_builder):
     try:
@@ -320,85 +319,128 @@ def mostrar_pantalla_principal(root):
             CARD_CORNER_RADIUS = 8
             
             FONT_HEADER = ctk.CTkFont(size=18, weight="bold")
-            FONT_DETAIL = ctk.CTkFont(size=15)
-            FONT_PILL = ctk.CTkFont(size=11, weight="bold")
+            FONT_DETAIL = ctk.CTkFont(size=13) 
+            FONT_PILL = ctk.CTkFont(size=10, weight="bold")
+            FONT_LABEL_STATUS = ctk.CTkFont(size=12, weight="normal")
+            FONT_COL_TITLE = ctk.CTkFont(size=12, weight="bold")
 
             colores_estado = {
-                "Completado": ("#D1FAE5", "#047857", "#047857"),
+                "Completado": ("#D1FAE5", "#047857", "#047857"), # BG, BORDER, TEXT
                 "Pendiente":  ("#FEF3C7", "#92400E", "#92400E"),
                 "Recibido":   ("#DBEAFE", "#1E3A8A", "#1E3A8A"),
                 "Desconocido": ("#F3F4F6", "#374151", "#374151")
             }
             
-            col_min_width = 300
-            wrap_width = col_min_width - 20
-
             for i, s in enumerate(lote):
                 grid_index = inicio + i
-                
-                estado_text = traducir_estado(s.get("estado"))
-                color_bg, color_border, color_text = colores_estado.get(estado_text, colores_estado["Desconocido"])
                 
                 titulo_val = (s.get('descripcion') or "Sin descripción").capitalize()
                 usuario_val = estado_paginacion["usuarios_map"].get(str(s.get('usuario')), 'Desconocido')
                 depto_val = s.get('Departamento', 'Desconocido')
                 tecnico_val = estado_paginacion["usuarios_map"].get(str(s.get('tecnico')), 'Sin asignar')
-                
                 reporte_valor = s.get("reporte")
                 if not reporte_valor or str(reporte_valor).strip().lower() in ["none", "null", ""]:
                     reporte_valor = "Sin reporte"
 
-                card_main = ctk.CTkFrame(scrollable, fg_color=COLOR_BODY_BG, corner_radius=CARD_CORNER_RADIUS, border_color="#DCDCDC", border_width=1)
-                card_main.grid(row=grid_index, column=0, sticky="ew", padx=15, pady=8)
+                estado_tec_val = s.get("estado")
+                texto_tec = traducir_estado(estado_tec_val)
+                c_bg_tec, c_bd_tec, c_txt_tec = colores_estado.get(texto_tec, colores_estado["Pendiente"])
+
+                estado_usu_val = s.get("completado_usuario")
+                texto_usu = traducir_estado(estado_usu_val)
+                c_bg_usu, c_bd_usu, c_txt_usu = colores_estado.get(texto_usu, colores_estado["Pendiente"])
+
+                # --- TARJETA PRINCIPAL ---
+                card_main = ctk.CTkFrame(scrollable, fg_color=COLOR_BODY_BG, corner_radius=CARD_CORNER_RADIUS)
+                card_main.grid(row=grid_index, column=0, sticky="ew", padx=15, pady=10)
                 card_main.grid_columnconfigure(0, weight=1)
 
+                # Header 
                 header_frame = ctk.CTkFrame(card_main, fg_color=COLOR_HEADER_BG, corner_radius=0)
-                header_frame.grid(row=0, column=0, sticky="ew")
-                ctk.CTkLabel(header_frame, text=f" SERVICIO #{s.get('id_servicio')} | {titulo_val}", font=FONT_HEADER, text_color=COLOR_HEADER_TEXT, anchor="w").pack(fill="x", padx=15, pady=10)
+                header_frame.grid(row=0, column=0, sticky="ew", padx=0, pady=0) 
+                
+                header_content = ctk.CTkFrame(header_frame, fg_color="transparent")
+                header_content.pack(fill="x", padx=15, pady=10)
+                ctk.CTkLabel(header_content, text=f" SERVICIO #{s.get('id_servicio')} | {titulo_val}", font=FONT_HEADER, text_color=COLOR_HEADER_TEXT, anchor="w").pack(fill="x")
 
+                # Body
                 body_container = ctk.CTkFrame(card_main, fg_color="transparent")
-                body_container.grid(row=1, column=0, sticky="nsew", padx=15, pady=5)
+                body_container.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
                 body_container.grid_columnconfigure(0, weight=1)
-                body_container.grid_rowconfigure(0, weight=1)
 
                 columns_frame = ctk.CTkFrame(body_container, fg_color="transparent")
-                columns_frame.grid(row=0, column=0, sticky="nsew")
-                columns_frame.grid_columnconfigure(0, weight=1, minsize=col_min_width)
-                columns_frame.grid_columnconfigure(2, weight=1, minsize=col_min_width)
-                columns_frame.grid_columnconfigure(4, weight=1, minsize=col_min_width)
-                columns_frame.grid_columnconfigure((1, 3), weight=0)
+                columns_frame.pack(fill="x", expand=True, padx=15, pady=10)
+                
+                # CONFIGURACIÓN DE COLUMNAS UNIFORMES
+                columns_frame.grid_columnconfigure((0, 2, 4, 6), weight=1, uniform="cols") 
+                columns_frame.grid_columnconfigure((1, 3, 5), weight=0) 
 
+                # --- COLUMNA 1 ---
                 c1 = ctk.CTkFrame(columns_frame, fg_color="transparent")
                 c1.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
-                ctk.CTkLabel(c1, text=f"Usuario: {usuario_val}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w", justify="left", wraplength=wrap_width).pack(fill="x", anchor="w")
-                ctk.CTkLabel(c1, text=f"Departamento: {depto_val}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w", justify="left", wraplength=wrap_width).pack(fill="x", anchor="w")
+                lbl_usuario = ctk.CTkLabel(c1, text=f"Usuario: {usuario_val}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w", justify="left")
+                lbl_usuario.pack(fill="x", anchor="w")
+                lbl_depto = ctk.CTkLabel(c1, text=f"Departamento: {depto_val}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w", justify="left")
+                lbl_depto.pack(fill="x", anchor="w")
 
-                ctk.CTkFrame(columns_frame, width=2, fg_color=COLOR_SEPARATOR).grid(row=0, column=1, sticky="ns", pady=5)
+                def ajustar_ancho_c1(event, l1=lbl_usuario, l2=lbl_depto):
+                    nuevo_ancho = event.width - 5
+                    if nuevo_ancho > 10:
+                        l1.configure(wraplength=nuevo_ancho)
+                        l2.configure(wraplength=nuevo_ancho)
+                c1.bind("<Configure>", ajustar_ancho_c1)
 
+                ctk.CTkFrame(columns_frame, width=2, fg_color=COLOR_SEPARATOR).grid(row=0, column=1, sticky="ns", pady=2)
+
+                # --- COLUMNA 2 (Texto de Reporte) ---
                 c2 = ctk.CTkFrame(columns_frame, fg_color="transparent")
-                c2.grid(row=0, column=2, sticky="nsew", padx=5)
-                ctk.CTkLabel(c2, text=f"Técnico: {tecnico_val}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w", justify="left", wraplength=wrap_width).pack(fill="x", anchor="w")
-                ctk.CTkLabel(c2, text=f"Reporte: {reporte_valor}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w", justify="left", wraplength=wrap_width).pack(fill="x", anchor="w")
-
-                ctk.CTkFrame(columns_frame, width=2, fg_color=COLOR_SEPARATOR).grid(row=0, column=3, sticky="ns", pady=5)
-
-                # --- COLUMNA 3 (Fechas) ---
-                c3 = ctk.CTkFrame(columns_frame, fg_color="transparent")
-                c3.grid(row=0, column=4, sticky="nsew", padx=(5, 0))
-
-                # Fecha Creación
-                ctk.CTkLabel(c3, text=f"Fecha creación: {formatear_fecha(s.get('fecha'))}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w").pack(fill="x", anchor="w")
-
-                # CORRECCIÓN AQUÍ: Se cambió 'fecha_asignada' por 'fecha_asignado'
-                ctk.CTkLabel(c3, text=f"Fecha Asignación: {formatear_fecha(s.get('fecha_asignado'))}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w").pack(fill="x", anchor="w")
-
-                # Fecha Culminación
-                ctk.CTkLabel(c3, text=f"Fecha de culminación: {formatear_fecha(s.get('fecha_culminado'))}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w").pack(fill="x", anchor="w")
+                c2.grid(row=0, column=2, sticky="nsew", padx=3)
                 
+                lbl_tecnico = ctk.CTkLabel(c2, text=f"Técnico: {tecnico_val}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w", justify="left")
+                lbl_tecnico.pack(fill="x", anchor="w")
+                
+                # NOTA: Se usa justify="left" y anchor="w" porque "Justificado" (bloque) NO EXISTE en Tkinter/CustomTkinter.
+                lbl_reporte = ctk.CTkLabel(c2, text=f"Reporte: {reporte_valor}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w", justify="left")
+                lbl_reporte.pack(fill="x", anchor="w")
 
-                pill = ctk.CTkFrame(body_container, fg_color=color_bg, border_color=color_border, border_width=1, corner_radius=14)
-                pill.grid(row=0, column=0, padx=(0, 5), pady=(0, 5), sticky="se")
-                ctk.CTkLabel(pill, text=estado_text.upper(), text_color=color_text, font=FONT_PILL).pack(padx=12, pady=5)
+                def ajustar_ancho_c2(event, lbl_t=lbl_tecnico, lbl_r=lbl_reporte):
+                    nuevo_ancho = event.width - 5 # Reducimos margen para aprovechar espacio
+                    if nuevo_ancho > 10:
+                        lbl_t.configure(wraplength=nuevo_ancho)
+                        lbl_r.configure(wraplength=nuevo_ancho)
+                c2.bind("<Configure>", ajustar_ancho_c2)
+
+                ctk.CTkFrame(columns_frame, width=2, fg_color=COLOR_SEPARATOR).grid(row=0, column=3, sticky="ns", pady=2)
+
+                # --- COLUMNA 3 ---
+                c3 = ctk.CTkFrame(columns_frame, fg_color="transparent")
+                c3.grid(row=0, column=4, sticky="nsew", padx=5)
+                ctk.CTkLabel(c3, text=f"Fecha creación: {formatear_fecha(s.get('fecha'))}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w").pack(fill="x", anchor="w")
+                ctk.CTkLabel(c3, text=f"Fecha Asignación: {formatear_fecha(s.get('fecha_asignado'))}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w").pack(fill="x", anchor="w")
+                ctk.CTkLabel(c3, text=f"Fecha de culminación: {formatear_fecha(s.get('fecha_culminado'))}", font=FONT_DETAIL, text_color=COLOR_DETAIL_TEXT, anchor="w").pack(fill="x", anchor="w")
+
+                ctk.CTkFrame(columns_frame, width=2, fg_color=COLOR_SEPARATOR).grid(row=0, column=5, sticky="ns", pady=2)
+
+                # --- COLUMNA 4: CONFIRMACIONES ---
+                c4 = ctk.CTkFrame(columns_frame, fg_color="transparent")
+                c4.grid(row=0, column=6, sticky="nsew", padx=(5, 0))
+                
+                ctk.CTkLabel(c4, text="CONFIRMACIONES", font=FONT_COL_TITLE, text_color=COLOR_DETAIL_TEXT).pack(pady=(0, 8), anchor="center")
+
+                frame_tec = ctk.CTkFrame(c4, fg_color="transparent")
+                frame_tec.pack(pady=(0, 5))
+                ctk.CTkLabel(frame_tec, text="Técnico:", font=FONT_LABEL_STATUS, text_color=COLOR_DETAIL_TEXT).pack(anchor="center")
+                pill_tec = ctk.CTkFrame(frame_tec, fg_color=c_bg_tec, border_color=c_bd_tec, border_width=1, corner_radius=15, height=25)
+                pill_tec.pack(pady=2)
+                ctk.CTkLabel(pill_tec, text=texto_tec.upper(), text_color=c_txt_tec, font=FONT_PILL).pack(padx=15, pady=2)
+
+                frame_usu = ctk.CTkFrame(c4, fg_color="transparent")
+                frame_usu.pack()
+                ctk.CTkLabel(frame_usu, text="Usuario:", font=FONT_LABEL_STATUS, text_color=COLOR_DETAIL_TEXT).pack(anchor="center")
+                pill_usu = ctk.CTkFrame(frame_usu, fg_color=c_bg_usu, border_color=c_bd_usu, border_width=1, corner_radius=15, height=25)
+                pill_usu.pack(pady=2)
+                ctk.CTkLabel(pill_usu, text=texto_usu.upper(), text_color=c_txt_usu, font=FONT_PILL).pack(padx=15, pady=2)
+
 
             estado_paginacion["indice_actual"] = fin
             registros_restantes = len(lista_completa) - estado_paginacion["indice_actual"]
@@ -422,17 +464,31 @@ def mostrar_pantalla_principal(root):
                     root.after(0, lambda: messagebox.showwarning("Sin datos", "No hay servicios filtrados para exportar."))
                     return
                 datos_para_excel = []
-                columnas_excel = ['ID Servicio', 'Estado', 'Descripción', 'Usuario', 'Técnico', 'Departamento', 'Fecha Creación', 'Reporte', 'Fecha Culminado']
+                columnas_excel = ['ID Servicio', 'Estado Técnico', 'Conf. Usuario', 'Descripción', 'Usuario', 'Técnico', 'Departamento', 'Fecha Creación', 'Reporte', 'Fecha Culminado']
                 
                 for s in servicios:
                     estado_text = traducir_estado(s.get("estado"))
+                    estado_usu_text = traducir_estado(s.get("completado_usuario"))
+                    
                     reporte_valor = s.get("reporte")
                     if not reporte_valor or str(reporte_valor).strip().lower() in ["none", "null", ""]:
                         reporte_valor = "No registrado"
                     usuario_nombre = usuarios_map.get(str(s.get('usuario')), 'Desconocido')
                     tecnico_nombre = usuarios_map.get(str(s.get('tecnico')), 'Sin asignar')
                     depto_nombre = s.get('Departamento', 'Desconocido')
-                    fila = [s.get('id_servicio'), estado_text, s.get('descripcion'), usuario_nombre, tecnico_nombre, depto_nombre, formatear_fecha(s.get('fecha')), reporte_valor, formatear_fecha(s.get('fecha_culminado'))]
+                    
+                    fila = [
+                        s.get('id_servicio'), 
+                        estado_text, 
+                        estado_usu_text,
+                        s.get('descripcion'), 
+                        usuario_nombre, 
+                        tecnico_nombre, 
+                        depto_nombre, 
+                        formatear_fecha(s.get('fecha')), 
+                        reporte_valor, 
+                        formatear_fecha(s.get('fecha_culminado'))
+                    ]
                     datos_para_excel.append(fila)
                 df = pd.DataFrame(datos_para_excel, columns=columnas_excel)
                 root.after(0, lambda: _guardar_excel_en_hilo_principal(df))
@@ -504,16 +560,7 @@ def mostrar_pantalla_principal(root):
                         except:
                             pass
                     adjusted_width = (max_length + 2)
-                    if column_letter == 'A': ws.column_dimensions[column_letter].width = max(adjusted_width, 12)
-                    elif column_letter == 'B': ws.column_dimensions[column_letter].width = min(max(adjusted_width, 13), 18)
-                    elif column_letter == 'C': ws.column_dimensions[column_letter].width = max(adjusted_width, 40)
-                    elif column_letter == 'D': ws.column_dimensions[column_letter].width = max(adjusted_width, 20)
-                    elif column_letter == 'E': ws.column_dimensions[column_letter].width = max(adjusted_width, 20)
-                    elif column_letter == 'F': ws.column_dimensions[column_letter].width = max(adjusted_width, 25)
-                    elif column_letter == 'G': ws.column_dimensions[column_letter].width = max(adjusted_width, 18)
-                    elif column_letter == 'H': ws.column_dimensions[column_letter].width = max(adjusted_width, 30)
-                    elif column_letter == 'I': ws.column_dimensions[column_letter].width = max(adjusted_width, 18)
-                    else: ws.column_dimensions[column_letter].width = adjusted_width
+                    ws.column_dimensions[column_letter].width = max(adjusted_width, 15)
 
                 wb.save(ruta_archivo)
                 os.startfile(ruta_archivo)
