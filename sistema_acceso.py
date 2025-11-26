@@ -464,7 +464,9 @@ def mostrar_pantalla_principal(root):
                     root.after(0, lambda: messagebox.showwarning("Sin datos", "No hay servicios filtrados para exportar."))
                     return
                 datos_para_excel = []
-                columnas_excel = ['ID Servicio', 'Estado Técnico', 'Conf. Usuario', 'Descripción', 'Usuario', 'Técnico', 'Departamento', 'Fecha Creación', 'Reporte', 'Fecha Culminado']
+                
+                # --- NUEVO ORDEN DE COLUMNAS SOLICITADO ---
+                columnas_excel = ['ID Servicio', 'Descripción', 'Usuario', 'Departamento', 'Técnico', 'Reporte', 'Conf. Técnico', 'Conf. Usuario', 'Fecha Creación', 'Fecha Asignación', 'Fecha Culminado']
                 
                 for s in servicios:
                     estado_text = traducir_estado(s.get("estado"))
@@ -477,17 +479,19 @@ def mostrar_pantalla_principal(root):
                     tecnico_nombre = usuarios_map.get(str(s.get('tecnico')), 'Sin asignar')
                     depto_nombre = s.get('Departamento', 'Desconocido')
                     
+                    # Se reordenan los datos para coincidir con columnas_excel
                     fila = [
-                        s.get('id_servicio'), 
-                        estado_text, 
-                        estado_usu_text,
-                        s.get('descripcion'), 
-                        usuario_nombre, 
-                        tecnico_nombre, 
-                        depto_nombre, 
-                        formatear_fecha(s.get('fecha')), 
-                        reporte_valor, 
-                        formatear_fecha(s.get('fecha_culminado'))
+                        s.get('id_servicio'),               # A
+                        s.get('descripcion'),               # B
+                        usuario_nombre,                     # C
+                        depto_nombre,                       # D
+                        tecnico_nombre,                     # E
+                        reporte_valor,                      # F
+                        estado_text,                        # G (Antes estado_tec)
+                        estado_usu_text,                    # H (Antes estado_usu)
+                        formatear_fecha(s.get('fecha')),    # I
+                        formatear_fecha(s.get('fecha_asignado')), # J (Nuevo)
+                        formatear_fecha(s.get('fecha_culminado')) # K
                     ]
                     datos_para_excel.append(fila)
                 df = pd.DataFrame(datos_para_excel, columns=columnas_excel)
@@ -513,9 +517,8 @@ def mostrar_pantalla_principal(root):
                         img.width = 290
                         img.height = 73
                         ws.add_image(img, "A1")
-                        ws.column_dimensions['A'].width = 10
-                        ws.column_dimensions['B'].width = 20
-                        ws.column_dimensions['C'].width = 2
+                        # CONFIGURACIÓN INICIAL (Para que el header se vea bien antes de ajustar)
+                        ws.column_dimensions['A'].width = 16 
                         fila_titulo = 1
                     else:
                         fila_titulo = 1
@@ -549,18 +552,36 @@ def mostrar_pantalla_principal(root):
                         cell.font = Font(name='Arial', size=9, color="000000")
                         cell.alignment = Alignment(vertical='top', wrap_text=True)
                         cell.border = Border(left=Side(style=BORDER_THIN), right=Side(style=BORDER_THIN), top=Side(style=BORDER_THIN), bottom=Side(style=BORDER_THIN))
-                        
+                
+                # --- CONFIGURACIÓN DEFINITIVA DE ANCHOS (Actualizado al nuevo orden) ---
+                # A: ID, B: Desc, C: Usu, D: Dept, E: Tec, F: Reporte, G: ConfTec, H: ConfUsu
+                
+                ws.column_dimensions['A'].width = 16  # ID Servicio
+                ws.column_dimensions['B'].width = 50  # Descripción (Antes D)
+                ws.column_dimensions['F'].width = 80  # Reporte (Antes I)
+                ws.column_dimensions['G'].width = 25  # Conf. Técnico
+                ws.column_dimensions['H'].width = 25  # Conf. Usuario
+
+                # Columnas manuales que NO deben auto-ajustarse
+                cols_manuales = ['A', 'B', 'F', 'G', 'H']
+
                 for column in ws.columns:
-                    max_length = 0
                     column_letter = get_column_letter(column[0].column)
+                    
+                    if column_letter in cols_manuales:
+                        continue 
+                    
+                    max_length = 0
                     for cell in column[3:]: 
                         try:
                             if cell.value:
                                 max_length = max(max_length, len(str(cell.value)))
                         except:
                             pass
+                    
                     adjusted_width = (max_length + 2)
-                    ws.column_dimensions[column_letter].width = max(adjusted_width, 15)
+                    ws.column_dimensions[column_letter].width = min(max(adjusted_width, 15), 40)
+                # -----------------------------------------------------
 
                 wb.save(ruta_archivo)
                 os.startfile(ruta_archivo)
