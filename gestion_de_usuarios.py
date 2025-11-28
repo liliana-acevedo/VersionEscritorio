@@ -12,7 +12,7 @@ registro_entries = {}
 registro_notificacion = None
 usuario_seleccionado = None
 app_root = None
-btn_bloqueo_global = None # Referencia global al botón de bloqueo
+btn_bloqueo_global = None 
 
 # --- Funciones Utilitarias Internas ---
 
@@ -26,24 +26,9 @@ def _set_registro_notificacion(text, color):
         return
     app_root.after(0, lambda: registro_notificacion.configure(text=text, text_color=color))
 
-def _clear_registro_campos():
-    global registro_entries, app_root
-    if not app_root:
-        return
-    def _clear():
-        for k in ['cedula', 'nombre', 'apellido']:
-            ent = registro_entries.get(k)
-            if ent:
-                try:
-                    ent.delete(0, 'end')
-                except Exception:
-                    pass
-    app_root.after(0, _clear)
-
-# --- Consultas a BD requeridas por este módulo ---
+# --- Consultas a BD ---
 
 def obtener_departamentos():
-    """Obtiene departamentos para llenar los dropdowns de usuario."""
     departamentos_map = {}
     try:
         resp = supabase.table("Departamento").select("id_departamento, nombre_departamento").execute()
@@ -71,16 +56,15 @@ def obtener_roles():
 
 def obtener_usuarios_completos():
     try:
-        # AGREGAMOS 'bloqueado' A LA CONSULTA
         response = (
             supabase.table('Usuario')
-            .select('nombre, apellido, cedula, bloqueado, Departamento(nombre_departamento), Rol(nombre_rol)')
+            .select('nombre, apellido, cedula, correo, bloqueado, Departamento(nombre_departamento), Rol(nombre_rol)')
             .execute()
         )
         datos = response.data
 
         if not datos:
-            return pd.DataFrame(columns=['nombre', 'apellido', 'cedula', 'departamento', 'rol', 'bloqueado'])
+            return pd.DataFrame(columns=['nombre', 'apellido', 'cedula', 'correo', 'departamento', 'rol', 'bloqueado'])
 
         usuarios_procesados = []
         for usuario in datos:
@@ -88,7 +72,8 @@ def obtener_usuarios_completos():
                 'nombre': usuario.get('nombre', ''),
                 'apellido': usuario.get('apellido', ''),
                 'cedula': usuario.get('cedula', ''),
-                'bloqueado': usuario.get('bloqueado', False), # Obtenemos estado
+                'correo': usuario.get('correo', ''),
+                'bloqueado': usuario.get('bloqueado', False),
                 'departamento': 'Sin departamento',
                 'rol': 'Sin rol'
             }
@@ -112,52 +97,9 @@ def obtener_usuarios_completos():
 
     except Exception as e:
         print(f"Ocurrió un error al obtener datos de Supabase: {e}")
-        return pd.DataFrame(columns=['nombre', 'apellido', 'cedula', 'departamento', 'rol', 'bloqueado'])
-
-#def eliminar_usuario(cedula, nombre_completo, row_frame=None, bloqueado=False):
-    # PROTECCIÓN: No eliminar si está bloqueado
-    if bloqueado:
-        messagebox.showerror("Acción Denegada", f"El usuario {nombre_completo} está BLOQUEADO.\nNo se puede eliminar.")
-        return
-
-    def _eliminar():
-        try:
-            cedula_int = int(cedula)
-            response = supabase.table("Usuario").delete().eq("cedula", cedula_int).execute()
-            if response.data:
-                print(f"Usuario {nombre_completo} eliminado correctamente")
-                def eliminar_fila_ui():
-                    if row_frame and row_frame.winfo_exists():
-                        row_frame.destroy()
-                    global usuario_seleccionado, app_root
-                    if usuario_seleccionado and usuario_seleccionado['cedula'] == cedula:
-                        usuario_seleccionado = None
-                        if app_root:
-                            for widget in app_root.winfo_children():
-                                if isinstance(widget, ctk.CTkFrame):
-                                    for child in widget.winfo_children():
-                                        if isinstance(child, ctk.CTkFrame):
-                                            for subchild in child.winfo_children():
-                                                if hasattr(subchild, 'cget') and "USUARIO SELECCIONADO" in subchild.cget("text", "").upper():
-                                                    subchild.configure(text="NINGÚN USUARIO SELECCIONADO", text_color="white")
-                if app_root:
-                    app_root.after(0, eliminar_fila_ui)
-            else:
-                if app_root:
-                    app_root.after(0, lambda: messagebox.showerror("Error", f"No se pudo eliminar al usuario {nombre_completo}"))
-        except Exception as e:
-            if app_root:
-                app_root.after(0, lambda: messagebox.showerror("Error", f"Error al eliminar usuario: {e}"))
-    
-    confirmar = tk.messagebox.askyesno(
-        "Confirmar Eliminación", 
-        f"¿Está seguro de que desea eliminar al usuario:\n{nombre_completo}?\n\nCédula: {cedula}"
-    )
-    if confirmar:
-        threading.Thread(target=_eliminar, daemon=True).start()
+        return pd.DataFrame(columns=['nombre', 'apellido', 'cedula', 'correo', 'departamento', 'rol', 'bloqueado'])
 
 def alternar_bloqueo_usuario(cedula, estado_actual, nombre_completo, funcion_recarga):
-    """Cambia el estado de bloqueo en la base de datos"""
     nuevo_estado = not estado_actual
     accion = "bloquear" if nuevo_estado else "desbloquear"
     
@@ -168,7 +110,6 @@ def alternar_bloqueo_usuario(cedula, estado_actual, nombre_completo, funcion_rec
         try:
             cedula_int = int(cedula)
             supabase.table("Usuario").update({"bloqueado": nuevo_estado}).eq("cedula", cedula_int).execute()
-            # Recargar la lista para mostrar cambios
             app_root.after(0, funcion_recarga)
             app_root.after(0, lambda: messagebox.showinfo("Éxito", f"Usuario {accion} correctamente."))
         except Exception as e:
@@ -251,7 +192,6 @@ def abrir_ventana_seleccion_depto(root, display_entry, nombre_var):
 
 
 # --- PANTALLA PRINCIPAL DE REGISTRO DE USUARIO ---
-# --- PANTALLA PRINCIPAL DE REGISTRO DE USUARIO ---
 def mostrar_pantalla_registro(root):
     global registro_entries, registro_notificacion, app_root, usuario_seleccionado, btn_bloqueo_global
     
@@ -304,23 +244,25 @@ def mostrar_pantalla_registro(root):
     col_vacia_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
     col_vacia_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
     
-    # --- CONFIGURACIÓN DE COLUMNAS ---
+    # --- CONFIGURACIÓN DE COLUMNAS OPTIMIZADA ---
+    # Peso 0 para Cédula, Rol y Estado (no se estiran).
+    # Peso 1 para Nombre, Apellido y Correo (se estiran un poco).
+    # Peso 5 para DEPARTAMENTO (se lleva TODO el espacio extra).
     COL_CONF = [
-        (0, "NOMBRE", 1, 100),
-        (1, "APELLIDO", 1, 100),
-        (2, "CÉDULA", 0, 99),
-        (3, "DEPARTAMENTO", 2, 300), 
-        (4, "ROL", 0, 120),          
-        (5, "ESTADO", 6, 110)        
+        (0, "NOMBRE", 1, 90),
+        (1, "APELLIDO", 1, 88),
+        (2, "CÉDULA", 1, 80),         # Fijo, sin espacios
+        (3, "CORREO", 1, 165),
+        (4, "DEPARTAMENTO", 5, 280),  # ANCHO MAYOR y PESO MAYOR para eliminar huecos
+        (5, "ROL", 0, 86),            # Fijo
+        (6, "ESTADO", 0, 100)          # Fijo
     ]
 
-    # --- AJUSTE DE ESPACIO (Aquí solucionamos el hueco grande) ---
     def obtener_padding_columna(indice):
-        if indice == 4: # ROL
-            # Antes era (30, 5), lo bajamos a (10, 5) para acercarlo a la izquierda
-            return (9, 5)  
-        elif indice == 5: # ESTADO
-            return (5, 20) # Ajuste normal
+        if indice == 5: 
+            return (5, 5)  
+        elif indice == 6: 
+            return (5, 10) 
         else:
             return 5 
 
@@ -331,19 +273,6 @@ def mostrar_pantalla_registro(root):
         df_usuarios = obtener_usuarios_completos() 
         botones_superior_frame = ctk.CTkFrame(col_vacia_frame, fg_color="transparent")
         botones_superior_frame.pack(fill="x", padx=20, pady=(0, 10))
-        
-      #  try:
-      #      ruta_eliminar_reg = os.path.join("imagen", "eliminar.png")
-      #      icono_eliminar_reg = ctk.CTkImage(light_image=PILImage.open(ruta_eliminar_reg), size=(20, 20))
-      #      texto_elim_reg = ""
-      #      ancho_elim_reg = 40
-      #  except:
-       #     icono_eliminar_reg = None
-       #     texto_elim_reg = "ELIMINAR"
-       #     ancho_elim_reg = 120
-
-      #  btn_eliminar_superior = ctk.CTkButton(botones_superior_frame, text=texto_elim_reg, image=icono_eliminar_reg, fg_color="#DC2626", hover_color="#B91C1C", font=ctk.CTkFont(size=13, weight="bold"), width=ancho_elim_reg, height=35, command=lambda: _eliminar_usuario_seleccionado())
-      #  btn_eliminar_superior.pack(side="left", padx=(0, 10))
         
         def _accion_bloqueo():
             if not usuario_seleccionado: return
@@ -412,6 +341,7 @@ def mostrar_pantalla_registro(root):
                 nombre = str(row.get('nombre', '')).strip().upper()
                 apellido = str(row.get('apellido', '')).strip().upper()
                 cedula = str(row['cedula'])
+                correo = str(row.get('correo', '')).strip()
                 departamento = str(row.get('departamento', 'Sin departamento')).strip()
                 rol_raw = str(row.get('rol', 'Sin rol')).strip()
                 esta_bloqueado = bool(row.get('bloqueado', False))
@@ -423,20 +353,23 @@ def mostrar_pantalla_registro(root):
                 estado_texto = "BLOQUEADO" if esta_bloqueado else "ACTIVO"
                 estado_color = "#DC2626" if esta_bloqueado else "#16A34A"
                 nombre_completo = f"{nombre} {apellido}".strip()
-                usuario_data = {'cedula': cedula, 'nombre': nombre, 'apellido': apellido, 'departamento': departamento, 'rol': rol_raw, 'bloqueado': esta_bloqueado}
+                usuario_data = {
+                    'cedula': cedula, 'nombre': nombre, 'apellido': apellido, 
+                    'correo': correo,
+                    'departamento': departamento, 'rol': rol_raw, 'bloqueado': esta_bloqueado
+                }
 
                 callback = lambda e, c=cedula, n=nombre_completo, rf=row_frame, ud=usuario_data, bg=bg_color: seleccionar_usuario(c, n, rf, ud, bg)
                 row_frame.bind("<Button-1>", callback)
                 
-                valores = [nombre, apellido, cedula, departamento, rol_mostrar, estado_texto]
+                valores = [nombre, apellido, cedula, correo, departamento, rol_mostrar, estado_texto]
                 
                 for idx, val in enumerate(valores):
-                    color_texto = estado_color if idx == 5 else "#374151"
-                    font_w = "bold" if idx == 5 else "normal"
+                    color_texto = estado_color if idx == 6 else "#374151"
+                    font_w = "bold" if idx == 6 else "normal"
                     
                     pad_config = obtener_padding_columna(idx)
                     
-                    # Cálculo de wrap más preciso
                     pad_total = pad_config if isinstance(pad_config, int) else sum(pad_config)
                     ancho_wrap = COL_CONF[idx][3] - pad_total - 5
 
@@ -476,8 +409,21 @@ def mostrar_pantalla_registro(root):
     apellido_ent.pack(pady=(0, 15))
     registro_entries['apellido'] = apellido_ent
 
+    # --- CAMPO CORREO (Visible/Habilitado solo para Admin) ---
+    correo_ent = ctk.CTkEntry(form_frame, placeholder_text="Correo (Solo Admin)", width=ANCHO_INPUT, height=40)
+    correo_ent.pack(pady=(0, 15))
+    correo_ent.configure(state="disabled", fg_color="#F0F0F0")
+    registro_entries['correo'] = correo_ent
+
+    def on_rol_change(choice):
+        if "administrador" in str(choice).lower():
+            correo_ent.configure(state="normal", fg_color=["#F9F9FA", "#343638"])
+        else:
+            correo_ent.delete(0, 'end')
+            correo_ent.configure(state="disabled", fg_color="#F0F0F0")
+
     ctk.CTkLabel(form_frame, text="ROL", font=ctk.CTkFont(size=12, weight="bold"), text_color="#475569").pack(pady=(5, 2))
-    rol_combo = ctk.CTkComboBox(form_frame, values=rol_names or ["--"], width=ANCHO_INPUT, height=40, state="readonly")
+    rol_combo = ctk.CTkComboBox(form_frame, values=rol_names or ["--"], width=ANCHO_INPUT, height=40, state="readonly", command=on_rol_change)
     rol_combo.set(rol_names[0] if rol_names else "--")
     rol_combo.pack(pady=(0, 15))
     registro_entries['rol'] = rol_combo
@@ -499,11 +445,26 @@ def mostrar_pantalla_registro(root):
 
         c, n, a = registro_entries['cedula'].get(), registro_entries['nombre'].get(), registro_entries['apellido'].get()
         r_nom, d_nom = registro_entries['rol'].get(), registro_entries['departamento'].get()
+        correo_val = registro_entries['correo'].get()
 
         if not c or not n or not a: _set_registro_notificacion("Faltan datos", "orange"); return
         
-        datos_db = {'cedula': int(c), 'nombre': n, 'apellido': a, 'departamento': departamentos_map.get(d_nom), 'rol': roles_map.get(r_nom)}
+        if "administrador" in r_nom.lower() and not correo_val:
+             _set_registro_notificacion("Correo requerido para Admin", "orange"); return
+
+        datos_db = {
+            'cedula': int(c), 
+            'nombre': n, 
+            'apellido': a, 
+            'departamento': departamentos_map.get(d_nom), 
+            'rol': roles_map.get(r_nom)
+        }
         
+        if "administrador" in r_nom.lower():
+            datos_db['correo'] = correo_val
+        else:
+            datos_db['correo'] = ""
+
         def tarea():
             try:
                 if usuario_seleccionado and str(usuario_seleccionado['cedula']) == str(c):
@@ -526,7 +487,16 @@ def mostrar_pantalla_registro(root):
         cedula_ent.delete(0,'end'); cedula_ent.insert(0, u_data.get('cedula',''))
         nombre_ent.delete(0,'end'); nombre_ent.insert(0, u_data.get('nombre',''))
         apellido_ent.delete(0,'end'); apellido_ent.insert(0, u_data.get('apellido',''))
-        if u_data.get('rol'): rol_combo.set(u_data['rol'])
+        
+        rol_actual = u_data.get('rol', '')
+        if rol_actual: 
+            rol_combo.set(rol_actual)
+            on_rol_change(rol_actual)
+        
+        if "administrador" in rol_actual.lower():
+            correo_ent.delete(0, 'end')
+            correo_ent.insert(0, u_data.get('correo', ''))
+
         if u_data.get('departamento'):
             depto_display.configure(state="normal"); depto_display.delete(0,'end'); depto_display.insert(0, u_data['departamento']); depto_display.configure(state="readonly")
             depto_nombre_var.set(u_data['departamento'])
@@ -540,10 +510,14 @@ def mostrar_pantalla_registro(root):
             except: pass
         last_row_selected_widget = None; usuario_seleccionado = None
         cedula_ent.delete(0,'end'); nombre_ent.delete(0,'end'); apellido_ent.delete(0,'end')
+        correo_ent.delete(0, 'end'); correo_ent.configure(state="disabled", fg_color="#F0F0F0")
+        
         depto_display.configure(state="normal"); depto_display.delete(0,'end'); depto_display.insert(0, departamento_names[0] if departamento_names else ""); depto_display.configure(state="readonly")
+        
+        if rol_names:
+            rol_combo.set(rol_names[0])
+            on_rol_change(rol_names[0])
+
         btn_bloqueo_global.configure(state="disabled", text="BLOQUEAR USUARIO", fg_color="#D97706")
         seleccion_label.configure(text="NINGÚN USUARIO SELECCIONADO")
         registro_notificacion.configure(text="")
-#
-  # def _eliminar_usuario_seleccionado():
-  #    if usuario_seleccionado: eliminar_usuario(usuario_seleccionado['cedula'], usuario_seleccionado['nombre_completo'], usuario_seleccionado['row_frame'], usuario_seleccionado['data']['bloqueado'])
