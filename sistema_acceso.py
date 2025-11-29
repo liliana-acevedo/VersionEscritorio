@@ -49,6 +49,20 @@ def cerrar_sesion(root):
     from login import setup_login_app
     setup_login_app(root)
 
+# --- LÓGICA MANUAL PDF ---
+def abrir_manual():
+    try:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        ruta_pdf = os.path.join(base_dir, "manual", "manual1.pdf")
+        
+        if os.path.exists(ruta_pdf):
+            # Abre el PDF con el visor predeterminado del sistema (Windows/Mac/Linux)
+            os.startfile(ruta_pdf)
+        else:
+            messagebox.showerror("Error", f"No se encuentra el archivo del manual en:\n{ruta_pdf}")
+    except Exception as e:
+        messagebox.showerror("Error", f"No se pudo abrir el manual: {e}")
+
 #  Carga de Datos Estructurales (Departamentos y Roles)
 def obtener_departamentos():
     departamentos_map = {}
@@ -131,12 +145,18 @@ def mostrar_pantalla_principal(root):
     main_frame.grid_rowconfigure(1, weight=1)
     main_frame.grid_columnconfigure(0, weight=1)
 
+    # --- CONFIGURACIÓN DEL HEADER ---
     header_frame = ctk.CTkFrame(main_frame, fg_color="#0C4A6E", corner_radius=0, height=70)
     header_frame.grid(row=0, column=0, sticky="ew")
+    # Columnas del header:
+    # 0: Título (expandible)
+    # 1: Btn Depto
+    # 2: Btn Usuario
+    # 3: Separador Gris
+    # 4: Btn Manual
+    # 5: Btn Cerrar Sesión
     header_frame.grid_columnconfigure(0, weight=1)
-    header_frame.grid_columnconfigure(1, weight=0) 
-    header_frame.grid_columnconfigure(2, weight=0) 
-    header_frame.grid_columnconfigure(3, weight=0) 
+    header_frame.grid_columnconfigure((1, 2, 3, 4, 5), weight=0) 
 
     ctk.CTkLabel(header_frame, text="GESTIÓN DE SERVICIOS", font=ctk.CTkFont(size=22, weight="bold"), text_color="white").grid(row=0, column=0, padx=20, pady=15, sticky="w")
                  
@@ -149,6 +169,7 @@ def mostrar_pantalla_principal(root):
     title_frame.grid(row=0, column=0, sticky="ew", padx=18, pady=(15, 5))
     title_frame.grid_columnconfigure(0, weight=1) 
 
+    # --- CARGA DE IMAGENES ---
     try:
         logo_img = ctk.CTkImage(PILImage.open("imagen/exportar.png"), size=(200, 60))
         ctk.CTkLabel(title_frame, image=logo_img, text="").grid(row=0, column=0, sticky="w", padx=(10, 0))
@@ -160,6 +181,7 @@ def mostrar_pantalla_principal(root):
     except Exception:
         reload_icon = None
 
+    # Iconos Header
     try:
         icon_depto = ctk.CTkImage(PILImage.open("imagen/departamento.png"), size=(25, 25))
     except Exception:
@@ -176,6 +198,13 @@ def mostrar_pantalla_principal(root):
         icon_sesion = None
 
     try:
+        # Cargamos el icono del manual
+        icon_manual = ctk.CTkImage(PILImage.open("imagen/manual.png"), size=(25, 25))
+    except Exception:
+        icon_manual = None
+
+    # Iconos Toolbar
+    try:
         base_dir = os.path.dirname(os.path.abspath(__file__))
         ruta_imagen_boton_exportar = os.path.join(base_dir, "imagen", "btn_exportar.png") 
         export_button_image = ctk.CTkImage(PILImage.open(ruta_imagen_boton_exportar), size=(113, 37))
@@ -189,20 +218,41 @@ def mostrar_pantalla_principal(root):
     except Exception:
         icon_graficos = None
     
+    # --- BOTONES DEL HEADER REORGANIZADOS ---
+
+    # 1. Botón Departamento
     if icon_depto:
         ctk.CTkButton(header_frame, text="", image=icon_depto, fg_color="#16A34A", hover_color="#15803D", width=40, height=40, corner_radius=8, command=lambda: mostrar_pantalla_departamentos(root)).grid(row=0, column=1, padx=(10, 5), pady=12, sticky="e")
     else:
-        ctk.CTkButton(header_frame, text="AGREGAR DEPARTAMENTO", fg_color="#16A34A", hover_color="#15803D", font=ctk.CTkFont(size=13, weight="bold"), corner_radius=8, width=180, height=40, command=lambda: mostrar_pantalla_departamentos(root)).grid(row=0, column=1, padx=(10, 5), pady=12, sticky="e")
+        ctk.CTkButton(header_frame, text="DEPT", fg_color="#16A34A", hover_color="#15803D", width=60, height=40, corner_radius=8, command=lambda: mostrar_pantalla_departamentos(root)).grid(row=0, column=1, padx=(10, 5), pady=12, sticky="e")
 
+    # 2. Botón Usuario
     if icon_usuario:
-        ctk.CTkButton(header_frame, text="", image=icon_usuario, fg_color="#3D89D1", hover_color="#1E3D8F", width=40, height=40, corner_radius=8, command=lambda: mostrar_pantalla_registro(root)).grid(row=0, column=2, padx=(10, 5), pady=12, sticky="e")
+        ctk.CTkButton(header_frame, text="", image=icon_usuario, fg_color="#3D89D1", hover_color="#1E3D8F", width=40, height=40, corner_radius=8, command=lambda: mostrar_pantalla_registro(root)).grid(row=0, column=2, padx=(5, 10), pady=12, sticky="e")
     else:
-        ctk.CTkButton(header_frame, text="AGREGAR USUARIO", fg_color="#3D89D1", hover_color="#1E3D8F", font=ctk.CTkFont(size=13, weight="bold"), corner_radius=8, width=140, height=40, command=lambda: mostrar_pantalla_registro(root)).grid(row=0, column=2, padx=(10, 5), pady=12, sticky="e")
+        ctk.CTkButton(header_frame, text="USUARIO", fg_color="#3D89D1", hover_color="#1E3D8F", width=70, height=40, corner_radius=8, command=lambda: mostrar_pantalla_registro(root)).grid(row=0, column=2, padx=(5, 10), pady=12, sticky="e")
 
-    if icon_sesion:
-        ctk.CTkButton(header_frame, text="", image=icon_sesion, fg_color="#C82333", hover_color="#A31616", width=40, height=40, corner_radius=8, command=lambda: cerrar_sesion(root)).grid(row=0, column=3, padx=10, pady=12, sticky="e")
+    # 3. Separador Gris (Línea vertical)
+    separator = ctk.CTkFrame(header_frame, width=2, height=30, fg_color="#9CA3AF", corner_radius=0)
+    separator.grid(row=0, column=3, padx=(5, 5), pady=15, sticky="ns")
+
+    # 4. NUEVO Botón Manual
+    # Usamos un color grisáceo/azul (Slate) para diferenciarlo, o neutral si prefieres
+    color_btn_manual = "#64748B" 
+    hover_btn_manual = "#475569"
+    
+    if icon_manual:
+        ctk.CTkButton(header_frame, text="", image=icon_manual, fg_color=color_btn_manual, hover_color=hover_btn_manual, width=40, height=40, corner_radius=8, command=abrir_manual).grid(row=0, column=4, padx=(10, 5), pady=12, sticky="e")
     else:
-        ctk.CTkButton(header_frame, text="CERRAR SESIÓN", fg_color="#C82333", hover_color="#A31616", command=lambda: cerrar_sesion(root), font=ctk.CTkFont(size=13, weight="bold"), corner_radius=8, width=130, height=40).grid(row=0, column=3, padx=10, pady=12, sticky="e")
+        ctk.CTkButton(header_frame, text="MANUAL", fg_color=color_btn_manual, hover_color=hover_btn_manual, width=70, height=40, corner_radius=8, command=abrir_manual).grid(row=0, column=4, padx=(10, 5), pady=12, sticky="e")
+
+    # 5. Botón Cerrar Sesión
+    if icon_sesion:
+        ctk.CTkButton(header_frame, text="", image=icon_sesion, fg_color="#C82333", hover_color="#A31616", width=40, height=40, corner_radius=8, command=lambda: cerrar_sesion(root)).grid(row=0, column=5, padx=10, pady=12, sticky="e")
+    else:
+        ctk.CTkButton(header_frame, text="SALIR", fg_color="#C82333", hover_color="#A31616", command=lambda: cerrar_sesion(root), font=ctk.CTkFont(size=13, weight="bold"), corner_radius=8, width=70, height=40).grid(row=0, column=5, padx=10, pady=12, sticky="e")
+
+    # --- RESTO DEL CÓDIGO (Tabla, Filtros, Etc.) ---
 
     scrollable = ctk.CTkScrollableFrame(table_card, corner_radius=10)
     scrollable.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
