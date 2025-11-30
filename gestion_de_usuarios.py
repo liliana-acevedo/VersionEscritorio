@@ -249,12 +249,12 @@ def mostrar_pantalla_registro(root):
     # Peso 1 para Nombre, Apellido y Correo (se estiran un poco).
     # Peso 5 para DEPARTAMENTO (se lleva TODO el espacio extra).
     COL_CONF = [
-        (0, "NOMBRE", 1, 90),
-        (1, "APELLIDO", 1, 88),
+        (0, "NOMBRE", 1, 87),
+        (1, "APELLIDO", 1, 78),
         (2, "CÉDULA", 1, 80),         # Fijo, sin espacios
-        (3, "CORREO", 1, 165),
+        (3, "CORREO", 1, 173),
         (4, "DEPARTAMENTO", 5, 280),  # ANCHO MAYOR y PESO MAYOR para eliminar huecos
-        (5, "ROL", 0, 86),            # Fijo
+        (5, "ROL", 0, 73),            # Fijo
         (6, "ESTADO", 0, 100)          # Fijo
     ]
 
