@@ -111,9 +111,11 @@ def _fetch_chart_data():
 # ------------------------------------------------------
 
 def _crear_grafico_estado(tab_frame, data):
-    # Verificación de seguridad: si el frame ya no existe, no intentar dibujar
     if not tab_frame.winfo_exists():
         return
+
+    for widget in tab_frame.winfo_children():
+        widget.destroy()
 
     if not data:
         try:
@@ -149,7 +151,7 @@ def _crear_grafico_estado(tab_frame, data):
 
         ax.axis('equal')
         fig.patch.set_facecolor('#FFFFFF')
-        ax.set_title("Distribución de servicios por estado", color="#0C4A6E", fontsize=16, weight="bold")
+        ax.set_title("Distribución de servicios por estado", color="#0C4A6E", fontsize=16, weight="bold", pad=10)
 
         canvas = FigureCanvasTkAgg(fig, master=tab_frame)
         canvas.draw()
@@ -159,9 +161,14 @@ def _crear_grafico_estado(tab_frame, data):
 
 
 def _crear_grafico_barras(tab_frame, data, title):
-    # Verificación de seguridad
+    """
+    Versión con ajuste fino horizontal (un poco más a la derecha).
+    """
     if not tab_frame.winfo_exists():
         return
+
+    for widget in tab_frame.winfo_children():
+        widget.destroy()
 
     if not data:
         try:
@@ -170,40 +177,60 @@ def _crear_grafico_barras(tab_frame, data, title):
             pass
         return
 
+    scroll_frame = ctk.CTkScrollableFrame(tab_frame, fg_color="transparent")
+    scroll_frame.pack(fill="both", expand=True)
+
     sorted_data = dict(sorted(data.items(), key=lambda item: item[1], reverse=True))
     labels = list(sorted_data.keys())
     values = list(sorted_data.values())
 
+    # Mantenemos el ajuste de texto en 30 para que no sea muy ancho
     wrapped_labels = [textwrap.fill(label, width=30) for label in labels]
-    fig_height = max(7, len(labels) * 0.8)
+
+    # Altura dinámica
+    fig_height = max(6, len(labels) * 0.7 + 1.0)
 
     try:
         plt.close('all')
 
-        fig, ax = plt.subplots(figsize=(8, fig_height))
-        bars = ax.barh(wrapped_labels, values, color='#3D89D1', edgecolor='black')
+        fig, ax = plt.subplots(figsize=(10, fig_height))
+        
+        bars = ax.barh(wrapped_labels, values, color='#3D89D1', edgecolor='black', height=0.6)
 
-        ax.set_xlabel("Cantidad de servicios", fontsize=12, color="#333")
-        ax.set_title(title, fontsize=16, color="#0C4A6E", weight="bold")
+        ax.set_xlabel("Cantidad de servicios", fontsize=12, color="#333", labelpad=10)
+        
+        ax.set_title(title, fontsize=18, color="#0C4A6E", weight="bold", pad=15)
+        
         ax.invert_yaxis()
 
+        max_val = max(values) if values else 1
+        offset = max_val * 0.01
+        
         for bar in bars:
+            width = bar.get_width()
             ax.text(
-                bar.get_width() + 0.1,
+                width + offset,
                 bar.get_y() + bar.get_height() / 2,
-                f"{bar.get_width()}",
+                f"{int(width)}",
                 va="center",
-                fontsize=10
+                fontsize=10,
+                color="black",
+                weight="bold"
             )
 
         fig.patch.set_facecolor('#FFFFFF')
         ax.set_facecolor('#FFFFFF')
-        
-        fig.tight_layout(rect=[0, 0, 0.85, 1]) 
 
-        canvas = FigureCanvasTkAgg(fig, master=tab_frame)
+        # --- AJUSTE DEFINITIVO ---
+        # left=0.29: Subimos un poco desde 0.25. Esto mueve la gráfica a la derecha.
+        # top=0.92: Mantenemos el espacio del título que funcionó bien.
+        plt.subplots_adjust(left=0.20, right=0.96, top=0.92, bottom=0.08)
+
+        canvas = FigureCanvasTkAgg(fig, master=scroll_frame)
         canvas.draw()
-        canvas.get_tk_widget().pack(fill="both", expand=True)
+        
+        canvas.get_tk_widget().pack(fill="both", expand=True, pady=5, padx=5)
+
     except Exception as e:
         print(f"Error dibujando barras: {e}")
 
@@ -213,23 +240,15 @@ def _crear_grafico_barras(tab_frame, data, title):
 # ------------------------------------------------------
 
 def _fetch_and_render(root_window, content_frame, tabview, loading_label):
-    # 1. Obtenemos datos (esto tarda unos segundos)
     chart_data = _fetch_chart_data()
 
-    # 2. Definimos la función que actualiza la GUI
     def _render():
-        # --- CORRECCIÓN CLAVE ---
-        # Verificamos si la ventana principal aún existe antes de hacer NADA.
         try:
-            if not root_window.winfo_exists():
-                print("--- DEBUG: Ventana cerrada, cancelando renderizado ---")
-                return
-        except Exception:
-            return # Si winfo_exists falla, la ventana ya no está.
+            if not root_window.winfo_exists(): return
+        except Exception: return 
 
         try:
-            if loading_label.winfo_exists():
-                loading_label.destroy()
+            if loading_label.winfo_exists(): loading_label.destroy()
 
             if "error" in chart_data:
                 if content_frame.winfo_exists():
@@ -239,32 +258,29 @@ def _fetch_and_render(root_window, content_frame, tabview, loading_label):
             if tabview.winfo_exists():
                 tabview.pack(expand=True, fill="both", padx=10, pady=10)
 
-                # Intentamos crear los gráficos solo si las pestañas existen
                 try:
                     _crear_grafico_estado(tabview.tab("Por Estado"), chart_data.get('status'))
                 except Exception as e:
                     print(f"Error graficando estado: {e}")
 
                 try:
-                    _crear_grafico_barras(tabview.tab("Por Departamento"), chart_data.get('dept'), "Demanda por departamento")
+                    _crear_grafico_barras(tabview.tab("Por Departamento"), chart_data.get('dept'), "Demanda por Departamento")
                 except Exception as e:
                     print(f"Error graficando departamento: {e}")
 
                 try:
-                    _crear_grafico_barras(tabview.tab("Por Técnico"), chart_data.get('tech'), "Cantidad de servicios por técnico")
+                    _crear_grafico_barras(tabview.tab("Por Técnico"), chart_data.get('tech'), "Servicios por Técnico")
                 except Exception as e:
                     print(f"Error graficando tecnico: {e}")
                 
         except Exception as main_e:
-            print(f"--- DEBUG: Error controlado en _render (posible cierre de ventana): {main_e} ---")
+            print(f"--- DEBUG: Error controlado en _render: {main_e} ---")
 
-    # 3. Programamos la ejecución de _render en el hilo principal
-    # Usamos try/except por si root_window se destruyó justo en este milisegundo
     try:
         if root_window.winfo_exists():
             root_window.after(0, _render)
     except Exception:
-        print("--- DEBUG: No se pudo programar el renderizado, ventana cerrada ---")
+        pass
 
 
 # ------------------------------------------------------
@@ -278,7 +294,6 @@ def mostrar_pantalla_graficos(root, funcion_volver):
         _clear_widgets(root)
         root.title("Dashboard de Gráficos")
 
-        # Aseguramos limpieza de gráficos previos de Matplotlib
         plt.close('all')
 
         main_frame = ctk.CTkFrame(root, fg_color="#F7F9FB")
