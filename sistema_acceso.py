@@ -98,8 +98,8 @@ def map_usuarios_por_cedula():
         mapa = {}
         for u in usuarios:
             ced = u.get("cedula")
-            nombre = (u.get("nombre") or "").strip()
-            apellido = (u.get("apellido") or "").strip()
+            nombre = (u.get("nombre") or "").strip().upper()
+            apellido = (u.get("apellido") or "").strip().upper()
             if ced:
                 mapa[str(ced)] = f"{nombre} {apellido}".strip() or str(ced)
         return mapa
@@ -759,9 +759,9 @@ def mostrar_pantalla_principal(root):
             encontrados = False
             
             for tec in tecnicos_lista:
-                nombre = (tec.get("nombre") or "").strip()
-                apellido = (tec.get("apellido") or "").strip()
-                nombre_completo = f"{nombre} {apellido}".strip()
+                nombre = (tec.get("nombre") or "").strip().upper()
+                apellido = (tec.get("apellido") or "").strip().upper()
+                nombre_completo = f"{nombre} {apellido}".strip().upper()
                 cedula = tec.get("cedula")
                 
                 if not texto_busqueda or nombre_completo.lower().startswith(texto_busqueda):

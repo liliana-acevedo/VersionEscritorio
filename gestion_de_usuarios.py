@@ -582,7 +582,7 @@ def mostrar_pantalla_registro(root):
         if usuario_seleccionado and usuario_seleccionado['data']['bloqueado']:
             messagebox.showwarning("Restringido", "Usuario BLOQUEADO."); return
 
-        c, n, a = registro_entries['cedula'].get(), registro_entries['nombre'].get(), registro_entries['apellido'].get()
+        c, n, a = registro_entries['cedula'].get(), registro_entries['nombre'].get().strip().upper(), registro_entries['apellido'].get().strip().upper()
         r_nom, d_nom = registro_entries['rol'].get(), registro_entries['departamento'].get()
         correo_val = registro_entries['correo'].get()
 
