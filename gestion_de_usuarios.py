@@ -6,6 +6,7 @@ import pandas as pd
 from tkinter import messagebox
 import os
 from PIL import Image as PILImage 
+from datetime import datetime
 
 # Variables globales específicas para Gestión de Usuarios
 registro_entries = {}
@@ -13,6 +14,7 @@ registro_notificacion = None
 usuario_seleccionado = None
 app_root = None
 btn_bloqueo_global = None 
+btn_historial_global = None 
 
 # --- Funciones Utilitarias Internas ---
 
@@ -93,25 +95,127 @@ def obtener_usuarios_completos():
             usuarios_procesados.append(usuario_procesado)
 
         df_usuarios = pd.DataFrame(usuarios_procesados)
+
+        # Ordenamiento personalizado (Admin primero, etc)
+        if not df_usuarios.empty:
+            def asignar_prioridad(row):
+                rol = str(row.get('rol', '')).lower()
+                depto = str(row.get('departamento', '')).lower()
+                if 'administrador' in rol: return 0
+                elif 'soporte' in rol or 'soporte' in depto: return 1
+                else: return 2
+
+            df_usuarios['_orden'] = df_usuarios.apply(asignar_prioridad, axis=1)
+            df_usuarios = df_usuarios.sort_values(by=['_orden', 'nombre'], ascending=[True, True])
+
         return df_usuarios
 
     except Exception as e:
         print(f"Ocurrió un error al obtener datos de Supabase: {e}")
         return pd.DataFrame(columns=['nombre', 'apellido', 'cedula', 'correo', 'departamento', 'rol', 'bloqueado'])
 
+# --- FUNCIONES DE HISTORIAL ---
+
+def registrar_historial_bd(cedula, accion, detalles):
+    """Inserta un registro en la tabla HistorialUsuario vinculada por Cédula"""
+    def _insertar():
+        try:
+            datos = {
+                "cedula_usuario": int(cedula),
+                "accion": accion,
+                "detalles": detalles
+            }
+            supabase.table("HistorialUsuario").insert(datos).execute()
+            print(f"Historial registrado: {accion} - {cedula}")
+        except Exception as e:
+            print(f"Error registrando historial: {e}")
+    
+    threading.Thread(target=_insertar, daemon=True).start()
+
+def ver_historial_popup(root, cedula, nombre_completo):
+    """Muestra ventana emergente con historial"""
+    ventana = ctk.CTkToplevel(root)
+    ventana.title(f"Historial")
+    ventana.geometry("700x450")
+    ventana.grab_set() 
+    ventana.resizable(False, False)
+    
+    ventana.update_idletasks()
+    x = (ventana.winfo_screenwidth() // 2) - (700 // 2)
+    y = (ventana.winfo_screenheight() // 2) - (450 // 2)
+    ventana.geometry(f"+{x}+{y}")
+
+    ctk.CTkLabel(ventana, text=f"HISTORIAL DE MOVIMIENTOS", font=ctk.CTkFont(size=18, weight="bold"), text_color="#1E3D8F").pack(pady=(15, 5))
+    ctk.CTkLabel(ventana, text=f"Usuario: {nombre_completo} (C.I: {cedula})", font=ctk.CTkFont(size=14), text_color="gray").pack(pady=(0, 15))
+
+    header = ctk.CTkFrame(ventana, fg_color="#E5E7EB", height=30)
+    header.pack(fill="x", padx=20)
+    
+    ctk.CTkLabel(header, text="FECHA/HORA", width=150, font=("Arial", 11, "bold"), text_color="black").pack(side="left", padx=5)
+    ctk.CTkLabel(header, text="ACCIÓN", width=120, font=("Arial", 11, "bold"), text_color="black").pack(side="left", padx=5)
+    ctk.CTkLabel(header, text="DETALLES", font=("Arial", 11, "bold"), text_color="black").pack(side="left", padx=5, fill="x", expand=True)
+
+    scroll = ctk.CTkScrollableFrame(ventana, fg_color="white", corner_radius=0)
+    scroll.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+
+    def renderizar_filas(data):
+        for widget in scroll.winfo_children(): widget.destroy()
+        
+        if not data:
+            ctk.CTkLabel(scroll, text="Sin movimientos registrados.", text_color="gray").pack(pady=20)
+            return
+
+        for i, item in enumerate(data):
+            color_bg = "#F9FAFB" if i % 2 != 0 else "white"
+            row = ctk.CTkFrame(scroll, fg_color=color_bg, corner_radius=0)
+            row.pack(fill="x", pady=1)
+
+            fecha_raw = item.get("fecha", "")
+            try:
+                fecha_obj = datetime.fromisoformat(fecha_raw.replace('Z', '+00:00'))
+                fecha_str = fecha_obj.strftime("%d/%m/%Y %I:%M %p")
+            except:
+                fecha_str = fecha_raw[:16]
+
+            ctk.CTkLabel(row, text=fecha_str, width=150, text_color="#4B5563", font=("Arial", 11)).pack(side="left", padx=5)
+            
+            accion = item.get("accion", "").upper()
+            color_acc = "#16A34A" if "CREA" in accion else "#D97706" if "EDI" in accion else "#DC2626"
+            ctk.CTkLabel(row, text=accion, width=120, text_color=color_acc, font=("Arial", 11, "bold")).pack(side="left", padx=5)
+            
+            # Label de detalles con wraplength para que no se corte si es largo
+            detalles_lbl = ctk.CTkLabel(row, text=item.get("detalles", ""), text_color="#374151", font=("Arial", 11), anchor="w", justify="left")
+            detalles_lbl.pack(side="left", padx=5, fill="x", expand=True)
+
+    def cargar_datos():
+        try:
+            resp = supabase.table("HistorialUsuario").select("*").eq("cedula_usuario", int(cedula)).order("fecha", desc=True).execute()
+            ventana.after(0, lambda: renderizar_filas(resp.data or []))
+        except Exception as e:
+            print(e)
+            ventana.after(0, lambda: ctk.CTkLabel(scroll, text="Error de conexión.", text_color="red").pack(pady=20))
+
+    threading.Thread(target=cargar_datos, daemon=True).start()
+
+# ---------------------------------------------
+    
 def alternar_bloqueo_usuario(cedula, estado_actual, nombre_completo, funcion_recarga):
     nuevo_estado = not estado_actual
-    accion = "bloquear" if nuevo_estado else "desbloquear"
+    accion_texto = "BLOQUEO" if nuevo_estado else "DESBLOQUEO"
     
-    if not tk.messagebox.askyesno("Confirmar Bloqueo", f"¿Desea {accion} al usuario {nombre_completo}?"):
+    if not tk.messagebox.askyesno("Confirmar Bloqueo", f"¿Desea realizar {accion_texto} al usuario {nombre_completo}?"):
         return
 
     def _update():
         try:
             cedula_int = int(cedula)
             supabase.table("Usuario").update({"bloqueado": nuevo_estado}).eq("cedula", cedula_int).execute()
+            
+            # REGISTRO HISTORIAL BLOQUEO
+            registrar_historial_bd(cedula, accion_texto, f"Estado cambiado a {'Bloqueado' if nuevo_estado else 'Activo'}")
+
             app_root.after(0, funcion_recarga)
-            app_root.after(0, lambda: messagebox.showinfo("Éxito", f"Usuario {accion} correctamente."))
+            app_root.after(0, lambda: messagebox.showinfo("Éxito", f"Usuario actualizado correctamente."))
         except Exception as e:
             print(f"Error cambiando bloqueo: {e}")
             app_root.after(0, lambda: messagebox.showerror("Error", f"No se pudo actualizar el estado: {e}"))
@@ -193,7 +297,7 @@ def abrir_ventana_seleccion_depto(root, display_entry, nombre_var):
 
 # --- PANTALLA PRINCIPAL DE REGISTRO DE USUARIO ---
 def mostrar_pantalla_registro(root):
-    global registro_entries, registro_notificacion, app_root, usuario_seleccionado, btn_bloqueo_global
+    global registro_entries, registro_notificacion, app_root, usuario_seleccionado, btn_bloqueo_global, btn_historial_global
     
     last_row_selected_widget = None 
     last_row_selected_color = None
@@ -244,33 +348,27 @@ def mostrar_pantalla_registro(root):
     col_vacia_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
     col_vacia_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
     
-    # --- CONFIGURACIÓN DE COLUMNAS OPTIMIZADA ---
-    # Peso 0 para Cédula, Rol y Estado (no se estiran).
-    # Peso 1 para Nombre, Apellido y Correo (se estiran un poco).
-    # Peso 5 para DEPARTAMENTO (se lleva TODO el espacio extra).
     COL_CONF = [
         (0, "NOMBRE", 1, 87),
         (1, "APELLIDO", 1, 78),
-        (2, "CÉDULA", 1, 80),         # Fijo, sin espacios
+        (2, "CÉDULA", 1, 80),         
         (3, "CORREO", 1, 173),
-        (4, "DEPARTAMENTO", 5, 280),  # ANCHO MAYOR y PESO MAYOR para eliminar huecos
-        (5, "ROL", 0, 73),            # Fijo
-        (6, "ESTADO", 0, 100)          # Fijo
+        (4, "DEPARTAMENTO", 5, 280),  
+        (5, "ROL", 0, 73),            
+        (6, "ESTADO", 0, 100)          
     ]
 
     def obtener_padding_columna(indice):
-        if indice == 5: 
-            return (5, 5)  
-        elif indice == 6: 
-            return (5, 10) 
-        else:
-            return 5 
+        if indice == 5: return (5, 5)  
+        elif indice == 6: return (5, 10) 
+        else: return 5 
 
     def recargar_tabla_usuarios():
         mostrar_pantalla_registro(root)
 
     try:
-        df_usuarios = obtener_usuarios_completos() 
+        df_usuarios_completo = obtener_usuarios_completos()
+
         botones_superior_frame = ctk.CTkFrame(col_vacia_frame, fg_color="transparent")
         botones_superior_frame.pack(fill="x", padx=20, pady=(0, 10))
         
@@ -278,58 +376,79 @@ def mostrar_pantalla_registro(root):
             if not usuario_seleccionado: return
             alternar_bloqueo_usuario(usuario_seleccionado['cedula'], usuario_seleccionado['data']['bloqueado'], usuario_seleccionado['nombre_completo'], recargar_tabla_usuarios)
 
-        btn_bloqueo_global = ctk.CTkButton(botones_superior_frame, text="BLOQUEAR USUARIO", fg_color="#D97706", hover_color="#FFFFFF", font=ctk.CTkFont(size=12, weight="bold"), width=160, height=35, state="disabled", command=_accion_bloqueo)
+        def _accion_historial():
+            if not usuario_seleccionado: return
+            ver_historial_popup(root, usuario_seleccionado['cedula'], usuario_seleccionado['nombre_completo'])
+
+        btn_bloqueo_global = ctk.CTkButton(botones_superior_frame, text="BLOQUEAR USUARIO", fg_color="#D97706", hover_color="#FFFFFF", font=ctk.CTkFont(size=12, weight="bold"), width=140, height=35, state="disabled", command=_accion_bloqueo)
         btn_bloqueo_global.pack(side="left", padx=(5, 10))
+
+        # --- BOTÓN HISTORIAL (NUEVO) ---
+        btn_historial_global = ctk.CTkButton(botones_superior_frame, text="VER HISTORIAL", fg_color="#4B5563", hover_color="#374151", font=ctk.CTkFont(size=12, weight="bold"), width=140, height=35, state="disabled", command=_accion_historial)
+        btn_historial_global.pack(side="left", padx=(0, 10))
+
+        # --- Campo de Búsqueda ---
+        search_entry = ctk.CTkEntry(botones_superior_frame, placeholder_text="Buscar por nombre, cédula o depto...", width=230, height=35)
+        search_entry.pack(side="left", padx=(10, 10))
 
         seleccion_label = ctk.CTkLabel(botones_superior_frame, text="NINGÚN USUARIO SELECCIONADO", text_color="white", fg_color="#0C4A6E", corner_radius=6, font=ctk.CTkFont(size=11, weight="bold"), padx=10, pady=5)
         seleccion_label.pack(side="right", padx=10)
 
-        if df_usuarios.empty:
-            ctk.CTkLabel(col_vacia_frame, text="No se encontraron usuarios.", text_color="#1E3D8F").pack(pady=10)
-        else:
-            table_container = ctk.CTkFrame(col_vacia_frame, fg_color="#FFFFFF", corner_radius=10, border_width=1, border_color="#E6E6E6")
-            table_container.pack(fill="both", expand=True, padx=20, pady=10)
-            
-            # --- HEADER ---
-            header_frame_table = ctk.CTkFrame(table_container, fg_color="#E5E7EB", corner_radius=0, height=45)
-            header_frame_table.pack(fill="x")
-            
-            for idx, titulo, peso, min_w in COL_CONF:
-                header_frame_table.grid_columnconfigure(idx, weight=peso, minsize=min_w)
-                pad_config = obtener_padding_columna(idx)
-                ctk.CTkLabel(header_frame_table, text=titulo, font=ctk.CTkFont(size=12, weight="bold"), text_color="#1F2937", anchor="w").grid(row=0, column=idx, padx=pad_config, pady=10, sticky="ew")
+        table_container = ctk.CTkFrame(col_vacia_frame, fg_color="#FFFFFF", corner_radius=10, border_width=1, border_color="#E6E6E6")
+        table_container.pack(fill="both", expand=True, padx=20, pady=10)
+        
+        # --- HEADER TABLA ---
+        header_frame_table = ctk.CTkFrame(table_container, fg_color="#E5E7EB", corner_radius=0, height=45)
+        header_frame_table.pack(fill="x")
+        
+        for idx, titulo, peso, min_w in COL_CONF:
+            header_frame_table.grid_columnconfigure(idx, weight=peso, minsize=min_w)
+            pad_config = obtener_padding_columna(idx)
+            ctk.CTkLabel(header_frame_table, text=titulo, font=ctk.CTkFont(size=12, weight="bold"), text_color="#1F2937", anchor="w").grid(row=0, column=idx, padx=pad_config, pady=10, sticky="ew")
 
-            # --- SCROLL AREA ---
-            scroll_frame = ctk.CTkScrollableFrame(table_container, fg_color="#FFFFFF", corner_radius=0)
-            scroll_frame.pack(fill="both", expand=True)
-            
-            for idx, _, peso, min_w in COL_CONF:
-                scroll_frame.grid_columnconfigure(idx, weight=peso, minsize=min_w)
+        # --- SCROLL AREA ---
+        scroll_frame = ctk.CTkScrollableFrame(table_container, fg_color="#FFFFFF", corner_radius=0)
+        scroll_frame.pack(fill="both", expand=True)
+        
+        for idx, _, peso, min_w in COL_CONF:
+            scroll_frame.grid_columnconfigure(idx, weight=peso, minsize=min_w)
 
-            def seleccionar_usuario(cedula, nombre_completo, row_frame, usuario_data, bg_original):
-                global usuario_seleccionado
-                nonlocal last_row_selected_widget, last_row_selected_color
-                
-                if last_row_selected_widget is not None and last_row_selected_widget.winfo_exists():
-                    try: last_row_selected_widget.configure(fg_color=last_row_selected_color)
-                    except: pass
-
-                row_frame.configure(fg_color="#BFDBFE")
-                last_row_selected_widget = row_frame
-                last_row_selected_color = bg_original
-                
-                usuario_seleccionado = {'cedula': cedula, 'nombre_completo': nombre_completo, 'row_frame': row_frame, 'data': usuario_data}
-                btn_bloqueo_global.configure(state="normal")
-                
-                if usuario_data['bloqueado']:
-                    btn_bloqueo_global.configure(text="DESBLOQUEAR", fg_color="#16A34A")
-                else:
-                    btn_bloqueo_global.configure(text="BLOQUEAR", fg_color="#D97706")
-                    
-                seleccion_label.configure(text=f"SELECCIONADO: {nombre_completo.upper()}")
-                cargar_datos_formulario(usuario_data)
+        def seleccionar_usuario(cedula, nombre_completo, row_frame, usuario_data, bg_original):
+            global usuario_seleccionado
+            nonlocal last_row_selected_widget, last_row_selected_color
             
-            for i, row in df_usuarios.iterrows():
+            if last_row_selected_widget is not None and last_row_selected_widget.winfo_exists():
+                try: last_row_selected_widget.configure(fg_color=last_row_selected_color)
+                except: pass
+
+            row_frame.configure(fg_color="#BFDBFE")
+            last_row_selected_widget = row_frame
+            last_row_selected_color = bg_original
+            
+            usuario_seleccionado = {'cedula': cedula, 'nombre_completo': nombre_completo, 'row_frame': row_frame, 'data': usuario_data}
+            
+            # ACTIVAR BOTONES
+            btn_bloqueo_global.configure(state="normal")
+            btn_historial_global.configure(state="normal")
+            
+            if usuario_data['bloqueado']:
+                btn_bloqueo_global.configure(text="DESBLOQUEAR", fg_color="#16A34A")
+            else:
+                btn_bloqueo_global.configure(text="BLOQUEAR", fg_color="#D97706")
+                
+            seleccion_label.configure(text=f"SELECCIONADO: {nombre_completo.upper()}")
+            cargar_datos_formulario(usuario_data)
+        
+        # Función para renderizar filas dinámicamente
+        def renderizar_filas(df_datos):
+            for widget in scroll_frame.winfo_children():
+                widget.destroy()
+
+            if df_datos.empty:
+                ctk.CTkLabel(scroll_frame, text="No se encontraron resultados.", text_color="gray").pack(pady=20)
+                return
+
+            for i, row in df_datos.iterrows():
                 bg_color = "#FFFFFF" if i % 2 == 0 else "#F9FAFB" 
                 
                 row_frame = ctk.CTkFrame(scroll_frame, fg_color=bg_color, corner_radius=0)
@@ -367,9 +486,7 @@ def mostrar_pantalla_registro(root):
                 for idx, val in enumerate(valores):
                     color_texto = estado_color if idx == 6 else "#374151"
                     font_w = "bold" if idx == 6 else "normal"
-                    
                     pad_config = obtener_padding_columna(idx)
-                    
                     pad_total = pad_config if isinstance(pad_config, int) else sum(pad_config)
                     ancho_wrap = COL_CONF[idx][3] - pad_total - 5
 
@@ -384,11 +501,33 @@ def mostrar_pantalla_registro(root):
                     )
                     lbl.grid(row=0, column=idx, padx=pad_config, pady=8, sticky="ew")
                     lbl.bind("<Button-1>", callback)
+        
+        def filtrar_tabla(event=None):
+            texto = search_entry.get().lower().strip()
+            
+            if not texto:
+                renderizar_filas(df_usuarios_completo)
+                return
+            
+            mask = df_usuarios_completo.apply(lambda x: 
+                texto in str(x['nombre']).lower() or
+                texto in str(x['apellido']).lower() or
+                texto in str(x['cedula']).lower() or
+                texto in str(x['departamento']).lower() or
+                texto in str(x['rol']).lower(),
+                axis=1
+            )
+            
+            df_filtrado = df_usuarios_completo[mask]
+            renderizar_filas(df_filtrado)
+
+        search_entry.bind("<KeyRelease>", filtrar_tabla)
+        renderizar_filas(df_usuarios_completo)
 
     except Exception as e:
         ctk.CTkLabel(col_vacia_frame, text=f"Error: {e}", text_color="red").pack(pady=20)
 
-    # --- FORMULARIO LATERAL ---
+    # --- FORMULARIO LATERAL (Sin cambios) ---
     form_frame = ctk.CTkFrame(content_frame, fg_color="#FFFFFF", corner_radius=10)
     form_frame.grid(row=0, column=1, pady=10, padx=20, ipadx=20, ipady=20, sticky="n")
 
@@ -467,12 +606,39 @@ def mostrar_pantalla_registro(root):
 
         def tarea():
             try:
+                # EDICIÓN
                 if usuario_seleccionado and str(usuario_seleccionado['cedula']) == str(c):
+                    # --- LÓGICA DE DETECCIÓN DE CAMBIOS ---
+                    cambios = []
+                    old_data = usuario_seleccionado['data']
+                    
+                    if old_data['nombre'] != n: cambios.append(f"Nombre: {old_data['nombre']} > {n}")
+                    if old_data['apellido'] != a: cambios.append(f"Apellido: {old_data['apellido']} > {a}")
+                    
+                    old_rol = old_data.get('rol', '')
+                    if old_rol != r_nom: cambios.append(f"Rol: {old_rol} > {r_nom}")
+                    
+                    old_depto = old_data.get('departamento', '')
+                    if old_depto != d_nom: cambios.append(f"Depto: {old_depto} > {d_nom}")
+                    
+                    old_correo = old_data.get('correo', '') or ""
+                    if old_correo != correo_val: cambios.append(f"Correo: {old_correo} > {correo_val}")
+                    
+                    detalles_msg = ", ".join(cambios) if cambios else "Sin cambios detectados"
+                    
                     supabase.table("Usuario").update(datos_db).eq("cedula", int(c)).execute()
+                    
+                    # REGISTRO HISTORIAL CON DETALLES
+                    registrar_historial_bd(c, "EDICIÓN", detalles_msg)
+
+                # CREACIÓN
                 else:
                     if supabase.table("Usuario").select("cedula").eq("cedula", int(c)).execute().data:
                         _set_registro_notificacion("Cédula duplicada", "red"); return
                     supabase.table("Usuario").insert(datos_db).execute()
+                    # REGISTRO HISTORIAL
+                    registrar_historial_bd(c, "CREACIÓN", f"Usuario {n} {a} registrado.")
+
                 app_root.after(0, lambda: [recargar_tabla_usuarios(), limpiar_formulario(), _set_registro_notificacion("Guardado OK", "#16A34A")])
             except Exception as e: print(e); _set_registro_notificacion("Error DB", "red")
             
@@ -519,5 +685,6 @@ def mostrar_pantalla_registro(root):
             on_rol_change(rol_names[0])
 
         btn_bloqueo_global.configure(state="disabled", text="BLOQUEAR USUARIO", fg_color="#D97706")
+        btn_historial_global.configure(state="disabled") # Bloquear btn historial
         seleccion_label.configure(text="NINGÚN USUARIO SELECCIONADO")
         registro_notificacion.configure(text="")
