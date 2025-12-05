@@ -21,7 +21,7 @@ __pycache__/
 
 # Builds y directorios de instalación
 
-dist/
+
 build/
 *.egg-info/
 .mypy_cache/
