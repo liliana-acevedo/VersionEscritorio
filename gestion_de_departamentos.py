@@ -88,7 +88,6 @@ def mostrar_pantalla_departamentos(root):
     search_frame = ctk.CTkFrame(left, fg_color="transparent")
     search_frame.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 5))
     
-    # Se agrega placeholder para indicar el tipo de búsqueda
     search_entry = ctk.CTkEntry(search_frame, placeholder_text="🔍 Buscar por inicial...", height=35)
     search_entry.pack(fill="x")
 
@@ -101,14 +100,15 @@ def mostrar_pantalla_departamentos(root):
     selected = {"id": None, "nombre": None}
     lista_datos_cache = []
 
-    # --- PANEL DERECHO (FORMULARIO) ---
+    # --- PANEL DERECHO (SOLO AGREGAR) ---
     right = ctk.CTkFrame(content, fg_color="#FFFFFF", corner_radius=10)
     right.grid(row=0, column=1, sticky="nsew")
     right.grid_columnconfigure(0, weight=1)
 
-    ctk.CTkLabel(right, text="AGREGAR / EDITAR DEPARTAMENTO", font=ctk.CTkFont(size=18, weight="bold"), text_color="#1E3D8F").grid(row=0, column=0, pady=(30, 15), padx=20)
+    # CAMBIO: Título actualizado a solo AGREGAR
+    ctk.CTkLabel(right, text="AGREGAR DEPARTAMENTO", font=ctk.CTkFont(size=18, weight="bold"), text_color="#1E3D8F").grid(row=0, column=0, pady=(30, 15), padx=20)
 
-    depto_entry = ctk.CTkEntry(right, placeholder_text="Nombre del departamento", width=450, height=45, font=ctk.CTkFont(size=14), border_color="#CDCECF")
+    depto_entry = ctk.CTkEntry(right, placeholder_text="Nombre del nuevo departamento", width=450, height=45, font=ctk.CTkFont(size=14), border_color="#CDCECF")
     depto_entry.grid(row=1, column=0, pady=(5, 5), padx=20)
 
     depto_notificacion = ctk.CTkLabel(right, text="", text_color="#16A34A")
@@ -119,64 +119,56 @@ def mostrar_pantalla_departamentos(root):
     def limpiar_seleccion():
         selected["id"] = None
         selected["nombre"] = None
-        depto_entry.delete(0, "end")
+        # No limpiamos el entry aquí forzosamente para permitir seguir escribiendo si se deselecciona
         selection_label.configure(text="Ningún departamento seleccionado")
-        guardar_btn.configure(text="GUARDAR")
-
+        
     def on_cancelar():
         limpiar_seleccion()
+        depto_entry.delete(0, "end")
         depto_notificacion.configure(text="")
 
     def on_guardar():
+        # CAMBIO: Esta función ahora SIEMPRE agrega, nunca edita.
         nombre = depto_entry.get().strip().upper()
         if not nombre:
             depto_notificacion.configure(text="Ingrese un nombre válido.", text_color="orange")
             return
 
-        if selected["id"]:
-            actualizar_departamento(selected["id"], nombre)
+        # Simplemente insertamos, ignorando si hay algo seleccionado en la lista
+        try:
+            supabase.table("Departamento").insert({"nombre_departamento": nombre}).execute()
+            depto_notificacion.configure(text="Departamento agregado con éxito.", text_color="#16A34A")
+            depto_entry.delete(0, "end") # Limpiar campo al guardar
             cargar_departamentos()
             limpiar_seleccion()
-        else:
-            try:
-                supabase.table("Departamento").insert({"nombre_departamento": nombre}).execute()
-                depto_notificacion.configure(text="Departamento agregado con éxito.", text_color="#16A34A")
-                cargar_departamentos()
-                limpiar_seleccion()
-            except Exception as e:
-                print(f"ERROR: {e}")
-                depto_notificacion.configure(text=f"Error al guardar: {str(e)}", text_color="red")
+        except Exception as e:
+            print(f"ERROR: {e}")
+            depto_notificacion.configure(text=f"Error al guardar: {str(e)}", text_color="red")
 
-    guardar_btn = ctk.CTkButton(right, text="GUARDAR CAMBIOS", fg_color="#16A34A", hover_color="#15803D", font=ctk.CTkFont(size=13, weight="bold"), width=450, height=45, command=on_guardar)
+    guardar_btn = ctk.CTkButton(right, text="AGREGAR", fg_color="#16A34A", hover_color="#15803D", font=ctk.CTkFont(size=13, weight="bold"), width=450, height=45, command=on_guardar)
     guardar_btn.grid(row=3, column=0, pady=(10, 10), padx=20)
 
-    cancelar_btn = ctk.CTkButton(right, text="CANCELAR", fg_color="#8b8a8a", hover_color="#777373", font=ctk.CTkFont(size=13, weight="bold"), width=450, height=45, command=on_cancelar)
+    cancelar_btn = ctk.CTkButton(right, text="LIMPIAR CAMPO", fg_color="#8b8a8a", hover_color="#777373", font=ctk.CTkFont(size=13, weight="bold"), width=450, height=45, command=on_cancelar)
     cancelar_btn.grid(row=4, column=0, pady=(0, 20))
 
     def seleccionar(id_dep, nombre, frame):
+        # CAMBIO: Al seleccionar, solo actualizamos el ID para eliminar.
+        # NO cargamos el nombre en el entry para evitar ediciones accidentales.
         for r in rows.winfo_children():
             r.configure(fg_color="transparent")
         frame.configure(fg_color="#E0F2FE")
+        
         selected["id"] = id_dep
         selected["nombre"] = nombre
-        selection_label.configure(text=f"Seleccionado: {nombre}")
-        depto_entry.delete(0, "end")
-        depto_entry.insert(0, nombre)
-        guardar_btn.configure(text="GUARDAR CAMBIOS")
+        
+        selection_label.configure(text=f"Seleccionado para borrar: {nombre}")
         depto_notificacion.configure(text="", text_color="#16A34A")
-
-    def actualizar_departamento(id_dep, nombre):
-        try:
-            supabase.table("Departamento").update({"nombre_departamento": nombre}).eq("id_departamento", id_dep).execute()
-            depto_notificacion.configure(text="Departamento actualizado.", text_color="#16A34A")
-        except Exception as e:
-            depto_notificacion.configure(text=f"Error: {e}", text_color="red")
 
     def on_eliminar():
         if not selected["id"]:
-            tk.messagebox.showwarning("Advertencia", "Seleccione un departamento.")
+            tk.messagebox.showwarning("Advertencia", "Seleccione un departamento de la lista para eliminar.")
             return
-        if not tk.messagebox.askyesno("Confirmar", f"¿Eliminar {selected['nombre']}?"):
+        if not tk.messagebox.askyesno("Confirmar", f"¿Eliminar el departamento '{selected['nombre']}'?"):
             return
         try:
             supabase.table("Departamento").delete().eq("id_departamento", selected["id"]).execute()
@@ -219,8 +211,6 @@ def mostrar_pantalla_departamentos(root):
         if not texto_busqueda:
             renderizar_lista(lista_datos_cache)
         else:
-            # --- CAMBIO PRINCIPAL AQUÍ ---
-            # Usamos .startswith() para buscar solo lo que EMPIEZA con la letra escrita
             lista_filtrada = [
                 d for d in lista_datos_cache 
                 if d["nombre_departamento"].upper().startswith(texto_busqueda)

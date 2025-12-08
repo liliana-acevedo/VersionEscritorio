@@ -634,7 +634,10 @@ def mostrar_pantalla_registro(root):
                 # CREACIÓN
                 else:
                     if supabase.table("Usuario").select("cedula").eq("cedula", int(c)).execute().data:
+                        # --- MODIFICACIÓN AQUÍ: AÑADIDA VENTANA EMERGENTE ---
+                        app_root.after(0, lambda: messagebox.showerror("Error de Duplicidad", f"La cédula {c} ya se encuentra registrada en el sistema."))
                         _set_registro_notificacion("Cédula duplicada", "red"); return
+                    
                     supabase.table("Usuario").insert(datos_db).execute()
                     # REGISTRO HISTORIAL
                     registrar_historial_bd(c, "CREACIÓN", f"Usuario {n} {a} registrado.")
